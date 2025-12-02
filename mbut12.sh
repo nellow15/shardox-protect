@@ -49,7 +49,7 @@ class ApiController extends Controller
     {
         $user = auth()->user();
         if ($user->id !== 1 && (int) $user->owner_id !== (int) $user->id) {
-            abort(403, "🚫 LU SEHAT NGINTIP NGINTIP? SYAHV2DOFFC PROTECT ⚠️");
+            abort(403, "🚫 No Access");
         }
 
         return $this->view->make('admin.api.index', [
