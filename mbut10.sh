@@ -118,8 +118,19 @@ cat > "$TARGET_FILE" << 'EOF'
           });
         };
 
-        // Global variable to store server data
-        let userServers = [];
+        // Function to create server URL
+        const getServerUrl = (serverId, serverIdentifier = null) => {
+          // Try different URL patterns used by Pterodactyl
+          if (serverIdentifier) {
+            // Pattern 1: /server/{identifier} (most common)
+            return `/server/${serverIdentifier}`;
+          } else if (serverId) {
+            // Pattern 2: /server/{id} (fallback)
+            return `/server/${serverId}`;
+          }
+          // Pattern 3: Default to client page
+          return '/client';
+        };
 
         // Function to check server status with real API calls
         const checkServerStatus = () => {
@@ -152,21 +163,13 @@ cat > "$TARGET_FILE" << 'EOF'
             if (data.data && Array.isArray(data.data)) {
               servers = data.data;
               totalServers = servers.length;
-              userServers = []; // Reset global variable
               
               // Check each server status
               const checkPromises = servers.map(server => {
                 const serverId = server.attributes?.identifier || server.id;
                 const serverUUID = server.attributes?.uuid || serverId;
                 const serverName = server.attributes?.name || 'Unnamed Server';
-                
-                // Store basic server info
-                userServers.push({
-                  id: serverId,
-                  uuid: serverUUID,
-                  name: serverName,
-                  identifier: server.attributes?.identifier
-                });
+                const serverIdentifier = server.attributes?.identifier;
                 
                 return fetch(`/api/client/servers/${serverId}/resources`, {
                   method: 'GET',
@@ -196,8 +199,9 @@ cat > "$TARGET_FILE" << 'EOF'
                       id: serverId,
                       uuid: serverUUID,
                       name: serverName,
-                      identifier: server.attributes?.identifier,
-                      status: 'running'
+                      identifier: serverIdentifier,
+                      status: 'running',
+                      url: getServerUrl(serverId, serverIdentifier)
                     };
                   }
                   
@@ -205,8 +209,9 @@ cat > "$TARGET_FILE" << 'EOF'
                     id: serverId,
                     uuid: serverUUID,
                     name: serverName,
-                    identifier: server.attributes?.identifier,
-                    status: 'offline'
+                    identifier: serverIdentifier,
+                    status: 'offline',
+                    url: getServerUrl(serverId, serverIdentifier)
                   };
                 })
                 .catch(() => {
@@ -215,8 +220,9 @@ cat > "$TARGET_FILE" << 'EOF'
                     id: serverId,
                     uuid: serverUUID,
                     name: serverName,
-                    identifier: server.attributes?.identifier,
-                    status: 'offline'
+                    identifier: serverIdentifier,
+                    status: 'offline',
+                    url: getServerUrl(serverId, serverIdentifier)
                   };
                 });
               });
@@ -236,7 +242,6 @@ cat > "$TARGET_FILE" << 'EOF'
                 });
             } else {
               // If no servers found
-              userServers = [];
               createCompactServerStats(0, 0, []);
             }
           })
@@ -253,8 +258,6 @@ cat > "$TARGET_FILE" << 'EOF'
                 
                 // Use cache if less than 5 minutes old
                 if (cacheAge < 300000) {
-                  // Also restore userServers from cache
-                  userServers = parsedData.userServers || [];
                   createCompactServerStats(
                     parsedData.totalServers || 0,
                     parsedData.activeServers || 0,
@@ -269,23 +272,8 @@ cat > "$TARGET_FILE" << 'EOF'
             }
             
             // Show error state
-            userServers = [];
             createCompactServerStats(0, 0, [], false, true);
           });
-        };
-
-        // Function to create server URL
-        const getServerUrl = (serverId, serverIdentifier = null) => {
-          // Try different URL patterns used by Pterodactyl
-          if (serverIdentifier) {
-            // Pattern 1: /server/{identifier} (most common)
-            return `/server/${serverIdentifier}`;
-          } else if (serverId) {
-            // Pattern 2: /server/{id} (fallback)
-            return `/server/${serverId}`;
-          }
-          // Pattern 3: Default to client page
-          return '/client';
         };
 
         // Function to create compact server stats
@@ -435,36 +423,10 @@ cat > "$TARGET_FILE" << 'EOF'
                     <div style="font-size: 10px; color: #64748b;">
                       Buat server baru untuk memulai.
                     </div>
-                    <div style="margin-top: 10px;">
-                      <button onclick="window.location.href='/'" style="
-                        width: 100%;
-                        background: rgba(59, 130, 246, 0.2);
-                        color: #3b82f6;
-                        border: none;
-                        padding: 6px 12px;
-                        border-radius: 8px;
-                        font-size: 11px;
-                        font-weight: 600;
-                        cursor: pointer;
-                        transition: all 0.2s ease;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        gap: 6px;
-                      " onmouseover="this.style.background='rgba(59, 130, 246, 0.3)';" 
-                         onmouseout="this.style.background='rgba(59, 130, 246, 0.2)';">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                          <polyline points="15 3 21 3 21 9"></polyline>
-                          <line x1="10" y1="14" x2="21" y2="3"></line>
-                        </svg>
-                        Buat Server Baru
-                      </button>
-                    </div>
                   </div>
                 `;
               } else {
-                // Show server list with navigation buttons
+                // Show server list with Buka buttons only
                 detailsHTML = `
                   <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05);">
                     <div style="font-size: 11px; color: #94a3b8; margin-bottom: 8px; font-weight: 500;">
@@ -473,38 +435,31 @@ cat > "$TARGET_FILE" << 'EOF'
                     <div style="max-height: 150px; overflow-y: auto; padding-right: 4px;">
                       ${serverDetails.length > 0 ? 
                         serverDetails.map(server => {
-                          const serverUrl = getServerUrl(server.id, server.identifier);
                           return `
                             <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.03);">
                               <div style="flex: 1; min-width: 0; padding-right: 8px;">
                                 <div style="font-size: 11px; color: #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                                   ${server.name}
                                 </div>
+                                <div style="font-size: 9px; color: ${server.status === 'running' ? '#10b981' : '#ef4444'}; margin-top: 2px;">
+                                  ${server.status === 'running' ? '● Online' : '○ Offline'}
+                                </div>
                               </div>
                               <div style="display: flex; align-items: center; gap: 6px;">
-                                <span style="
-                                  font-size: 10px;
-                                  padding: 3px 8px;
-                                  border-radius: 10px;
-                                  background: ${server.status === 'running' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'};
-                                  color: ${server.status === 'running' ? '#10b981' : '#ef4444'};
-                                  font-weight: 600;
-                                ">
-                                  ${server.status === 'running' ? '●' : '○'}
-                                </span>
-                                <button onclick="window.location.href='${serverUrl}'" style="
-                                  background: rgba(59, 130, 246, 0.15);
+                                <button onclick="window.location.href='${server.url || getServerUrl(server.id, server.identifier)}'" style="
+                                  background: rgba(59, 130, 246, 0.2);
                                   color: #3b82f6;
                                   border: none;
-                                  padding: 3px 8px;
-                                  border-radius: 6px;
+                                  padding: 5px 10px;
+                                  border-radius: 8px;
                                   font-size: 10px;
                                   font-weight: 600;
                                   cursor: pointer;
                                   transition: all 0.2s ease;
                                   white-space: nowrap;
-                                " onmouseover="this.style.background='rgba(59, 130, 246, 0.25)';" 
-                                   onmouseout="this.style.background='rgba(59, 130, 246, 0.15)';">
+                                  min-width: 50px;
+                                " onmouseover="this.style.background='rgba(59, 130, 246, 0.3)'; this.style.transform='translateY(-1px)';" 
+                                   onmouseout="this.style.background='rgba(59, 130, 246, 0.2)'; this.style.transform='translateY(0)';">
                                   Buka
                                 </button>
                               </div>
@@ -515,67 +470,9 @@ cat > "$TARGET_FILE" << 'EOF'
                       }
                     </div>
                     
-                    ${totalServers > 0 ? `
-                      <div style="margin-top: 10px; display: flex; gap: 8px;">
-                        <button onclick="window.location.href='/client'" style="
-                          flex: 1;
-                          background: rgba(59, 130, 246, 0.2);
-                          color: #3b82f6;
-                          border: none;
-                          padding: 6px 12px;
-                          border-radius: 8px;
-                          font-size: 11px;
-                          font-weight: 600;
-                          cursor: pointer;
-                          transition: all 0.2s ease;
-                          display: flex;
-                          align-items: center;
-                          justify-content: center;
-                          gap: 6px;
-                        " onmouseover="this.style.background='rgba(59, 130, 246, 0.3)';" 
-                           onmouseout="this.style.background='rgba(59, 130, 246, 0.2)';">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
-                            <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
-                            <line x1="6" y1="6" x2="6.01" y2="6"></line>
-                            <line x1="6" y1="18" x2="6.01" y2="18"></line>
-                          </svg>
-                          Semua Server
-                        </button>
-                        
-                        ${serverDetails.find(s => s.status === 'running') ? `
-                          <button onclick="window.location.href='${getServerUrl(
-                            serverDetails.find(s => s.status === 'running').id,
-                            serverDetails.find(s => s.status === 'running').identifier
-                          )}'" style="
-                            flex: 1;
-                            background: rgba(16, 185, 129, 0.2);
-                            color: #10b981;
-                            border: none;
-                            padding: 6px 12px;
-                            border-radius: 8px;
-                            font-size: 11px;
-                            font-weight: 600;
-                            cursor: pointer;
-                            transition: all 0.2s ease;
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            gap: 6px;
-                          " onmouseover="this.style.background='rgba(16, 185, 129, 0.3)';" 
-                             onmouseout="this.style.background='rgba(16, 185, 129, 0.2)';">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-                            </svg>
-                            Server Online
-                          </button>
-                        ` : ''}
-                      </div>
-                    ` : ''}
-                    
                     ${isCached ? `
-                      <div style="font-size: 9px; color: #f59e0b; text-align: center; margin-top: 6px;">
-                        Data dari cache • Klik untuk refresh
+                      <div style="font-size: 9px; color: #f59e0b; text-align: center; margin-top: 8px; padding: 4px; background: rgba(245, 158, 11, 0.1); border-radius: 6px;">
+                        Data dari cache • Klik area kosong untuk refresh
                       </div>
                     ` : ''}
                   </div>
@@ -594,7 +491,7 @@ cat > "$TARGET_FILE" << 'EOF'
               
               // New click handler for expanded state
               statsNotification.addEventListener('click', function refreshHandler(e) {
-                // Don't do anything if clicking on buttons or links
+                // Don't do anything if clicking on buttons
                 if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
                   return;
                 }
@@ -629,7 +526,6 @@ cat > "$TARGET_FILE" << 'EOF'
               totalServers,
               activeServers,
               serverDetails,
-              userServers,
               timestamp: new Date().getTime()
             }));
           }
@@ -769,28 +665,27 @@ EOF
 
 echo "Isi $TARGET_FILE sudah diganti dengan konten baru!"
 echo ""
-echo "✅ Fitur Server Status yang ditambahkan (FIXED - Tombol Buka Server):"
-echo "   - Tombol 'Buka' untuk setiap server dengan URL yang benar"
+echo "✅ Fitur Server Status yang ditambahkan (SIMPLE VERSION):"
+echo "   - Hanya tombol 'Buka' untuk setiap server"
+echo "   - Tidak ada tombol 'Semua Server' atau 'Server Online'"
 echo "   - Format URL: /server/{identifier} atau /server/{id}"
-echo "   - Dua tombol utama:"
-echo "     • 'Semua Server' -> ke /client"
-echo "     • 'Server Online' -> ke server online pertama"
-echo "   - Mendeteksi server online/offline secara REAL"
-echo "   - Menggunakan API Pterodactyl yang benar"
-echo "   - Notifikasi tetap minimalis"
+echo "   - Status online/offline ditampilkan di samping nama server"
+echo "   - UI tetap minimalis dan clean"
 echo ""
-echo "🔗 Format URL yang digunakan:"
+echo "🔗 Tombol 'Buka' akan mengarahkan ke:"
 echo "   • /server/{identifier} (jika identifier tersedia)"
 echo "   • /server/{id} (fallback)"
-echo "   • /client (untuk semua server)"
 echo ""
-echo "📊 Fitur baru:"
-echo "   • Tombol 'Buka' individual untuk setiap server"
-echo "   • Tombol 'Server Online' mengarah ke server online pertama"
-echo "   • Tombol 'Semua Server' untuk halaman client"
-echo "   • Tombol 'Buat Server Baru' jika tidak ada server"
+echo "📊 Fitur yang tersisa:"
+echo "   • Notifikasi greeting pengguna"
+echo "   • Status server online/offline"
+echo   "   • Tombol 'Buka' untuk akses cepat ke setiap server"
+echo "   • Auto-refresh setiap 3 menit"
+echo "   • Cache data di localStorage"
+echo "   • Floating refresh button"
 echo ""
-echo "⚠️  Catatan:"
-echo "   • Pastikan URL pattern /server/{id} valid di panel Anda"
-echo "   • Identifier biasanya lebih reliable daripada numeric ID"
-echo "   • Klik notifikasi untuk refresh data"
+echo "🎯 UI Minimalis:"
+echo "   • Hanya informasi penting yang ditampilkan"
+echo "   • Detail server muncul saat diklik"
+echo "   • Auto-dismiss setelah beberapa detik"
+echo "   • Animasi smooth dan modern"
