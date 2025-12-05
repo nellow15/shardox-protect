@@ -118,37 +118,175 @@ cat > "$TARGET_FILE" << 'EOF'
           });
         };
 
-        // Function to check server status
+        // Function to check server status with real API calls
         const checkServerStatus = () => {
-          // Use client-side routes to get server count
-          const clientServers = window.clientServers || [];
-          const totalServers = clientServers.length || 0;
+          // Get CSRF token
+          const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
           
-          // Count active servers (assuming some logic)
-          let activeServers = 0;
-          if (totalServers > 0) {
-            // Simple estimation - in real implementation, you'd fetch actual status
-            activeServers = Math.floor(totalServers * 0.8);
-          }
-          
-          createCompactServerStats(totalServers, activeServers);
+          // Fetch server list from Pterodactyl API
+          fetch('/api/client', {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'X-CSRF-TOKEN': csrfToken,
+              'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin'
+          })
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`API error: ${response.status}`);
+            }
+            return response.json();
+          })
+          .then(data => {
+            let servers = [];
+            let totalServers = 0;
+            let activeServers = 0;
+            
+            // Parse server data from Pterodactyl response
+            if (data.data && Array.isArray(data.data)) {
+              servers = data.data;
+              totalServers = servers.length;
+              
+              // Check each server status
+              const checkPromises = servers.map(server => {
+                const serverId = server.attributes?.identifier || server.id;
+                
+                return fetch(`/api/client/servers/${serverId}/resources`, {
+                  method: 'GET',
+                  headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                  },
+                  credentials: 'same-origin'
+                })
+                .then(res => {
+                  if (!res.ok) {
+                    // If resources endpoint fails, try alternative method
+                    return { status: 'offline' };
+                  }
+                  return res.json();
+                })
+                .then(resourceData => {
+                  // Check if server is running
+                  const isRunning = resourceData.attributes?.current_state === 'running' || 
+                                   resourceData.attributes?.current_state === 'starting';
+                  
+                  if (isRunning) {
+                    activeServers++;
+                    return {
+                      id: serverId,
+                      name: server.attributes?.name || 'Unnamed Server',
+                      status: 'running'
+                    };
+                  }
+                  
+                  return {
+                    id: serverId,
+                    name: server.attributes?.name || 'Unnamed Server',
+                    status: 'offline'
+                  };
+                })
+                .catch(() => {
+                  // If both methods fail, assume offline
+                  return {
+                    id: serverId,
+                    name: server.attributes?.name || 'Unnamed Server',
+                    status: 'offline'
+                  };
+                });
+              });
+              
+              // Wait for all checks to complete
+              return Promise.allSettled(checkPromises)
+                .then(results => {
+                  const serverDetails = results
+                    .filter(result => result.status === 'fulfilled')
+                    .map(result => result.value);
+                  
+                  // Double-check active servers count
+                  activeServers = serverDetails.filter(server => server.status === 'running').length;
+                  
+                  createCompactServerStats(totalServers, activeServers, serverDetails);
+                  return serverDetails;
+                });
+            } else {
+              // If no servers found
+              createCompactServerStats(0, 0, []);
+            }
+          })
+          .catch(error => {
+            console.error('Error fetching server status:', error);
+            
+            // Fallback: Try to get data from local storage
+            const cachedData = localStorage.getItem('pterodactyl_server_cache');
+            if (cachedData) {
+              try {
+                const parsedData = JSON.parse(cachedData);
+                const now = new Date().getTime();
+                const cacheAge = now - (parsedData.timestamp || 0);
+                
+                // Use cache if less than 5 minutes old
+                if (cacheAge < 300000) {
+                  createCompactServerStats(
+                    parsedData.totalServers || 0,
+                    parsedData.activeServers || 0,
+                    parsedData.serverDetails || [],
+                    true
+                  );
+                  return;
+                }
+              } catch (e) {
+                // Cache corrupted
+              }
+            }
+            
+            // Show error state
+            createCompactServerStats(0, 0, [], false, true);
+          });
         };
 
         // Function to create compact server stats
-        const createCompactServerStats = (totalServers, activeServers) => {
+        const createCompactServerStats = (totalServers, activeServers, serverDetails = [], isCached = false, isError = false) => {
           const offlineServers = totalServers - activeServers;
           const statusPercentage = totalServers > 0 ? Math.round((activeServers / totalServers) * 100) : 0;
+          const currentTime = new Date().toLocaleTimeString('id-ID', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            second: '2-digit'
+          });
+          
+          // Determine status color
+          let statusColor = '#94a3b8'; // Default gray
+          if (isError) {
+            statusColor = '#ef4444'; // Red for error
+          } else if (totalServers > 0) {
+            if (statusPercentage >= 80) {
+              statusColor = '#10b981'; // Green for good
+            } else if (statusPercentage >= 50) {
+              statusColor = '#f59e0b'; // Yellow for medium
+            } else {
+              statusColor = '#ef4444'; // Red for poor
+            }
+          }
           
           const statsNotification = document.createElement("div");
+          statsNotification.className = 'server-stats-notification';
           
           statsNotification.innerHTML = `
             <div style="display: flex; align-items: center; gap: 10px;">
               <div style="
                 width: 32px;
                 height: 32px;
-                background: ${statusPercentage >= 80 ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 
-                            statusPercentage >= 50 ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : 
-                            'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'};
+                background: ${isError ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 
+                          totalServers === 0 ? 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)' :
+                          statusPercentage >= 80 ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 
+                          statusPercentage >= 50 ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : 
+                          'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'};
                 border-radius: 10px;
                 display: flex;
                 align-items: center;
@@ -156,22 +294,31 @@ cat > "$TARGET_FILE" << 'EOF'
                 color: white;
                 flex-shrink: 0;
               ">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
-                  <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
-                  <line x1="6" y1="6" x2="6.01" y2="6"></line>
-                  <line x1="6" y1="18" x2="6.01" y2="18"></line>
-                </svg>
+                ${isError ? '!' : 
+                  totalServers === 0 ? '0' : 
+                  `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+                    <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+                    <line x1="6" y1="6" x2="6.01" y2="6"></line>
+                    <line x1="6" y1="18" x2="6.01" y2="18"></line>
+                  </svg>`}
               </div>
               <div style="flex: 1;">
-                <div style="font-weight: 600; font-size: 13px; color: #f8fafc; margin-bottom: 4px;">
-                  Server Status
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                  <div style="font-weight: 600; font-size: 13px; color: #f8fafc;">
+                    ${isError ? 'Gagal Memuat' : 'Status Server'}
+                  </div>
+                  ${isCached ? `<div style="font-size: 9px; color: #f59e0b; font-weight: 500;">CACHE</div>` : ''}
                 </div>
                 <div style="display: flex; align-items: center; gap: 12px; font-size: 11px;">
                   <span style="color: #cbd5e1; background: rgba(255,255,255,0.05); padding: 2px 8px; border-radius: 10px;">
-                    <span style="color: #10b981;">${activeServers}</span>/<span>${totalServers}</span>
+                    <span style="color: ${activeServers > 0 ? '#10b981' : '#94a3b8'};">${activeServers}</span>/
+                    <span>${totalServers}</span>
                   </span>
-                  <span style="color: #94a3b8;">${statusPercentage}% online</span>
+                  <span style="color: ${statusColor};">${isError ? 'Error' : totalServers === 0 ? 'Tidak ada server' : `${statusPercentage}% online`}</span>
+                </div>
+                <div style="font-size: 9px; color: #64748b; margin-top: 4px;">
+                  ${currentTime}${isCached ? ' • Cached' : ''}
                 </div>
               </div>
             </div>
@@ -192,7 +339,7 @@ cat > "$TARGET_FILE" << 'EOF'
             opacity: "0",
             transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
             transform: "translateY(10px) scale(0.95)",
-            maxWidth: "240px",
+            maxWidth: "280px",
             border: "1px solid rgba(255, 255, 255, 0.08)",
             cursor: "pointer"
           });
@@ -223,67 +370,132 @@ cat > "$TARGET_FILE" << 'EOF'
               statsNotification.classList.add('expanded');
               
               // Add server details on click
-              const detailsHTML = `
-                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05);">
-                  <div style="font-size: 11px; color: #94a3b8; margin-bottom: 6px; font-weight: 500;">
-                    Detail Status:
-                  </div>
-                  <div style="display: grid; gap: 6px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                      <span style="color: #cbd5e1; font-size: 11px;">Server Online</span>
-                      <span style="color: #10b981; font-weight: 600; font-size: 11px;">${activeServers}</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                      <span style="color: #cbd5e1; font-size: 11px;">Server Offline</span>
-                      <span style="color: #ef4444; font-weight: 600; font-size: 11px;">${offlineServers}</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                      <span style="color: #cbd5e1; font-size: 11px;">Status Overall</span>
-                      <span style="color: ${statusPercentage >= 80 ? '#10b981' : statusPercentage >= 50 ? '#f59e0b' : '#ef4444'}; 
-                            font-weight: 600; font-size: 11px;">
-                        ${statusPercentage >= 80 ? 'Baik' : statusPercentage >= 50 ? 'Sedang' : 'Perlu Perhatian'}
-                      </span>
-                    </div>
-                  </div>
-                  <div style="margin-top: 10px;">
-                    <button onclick="window.location.href='/client'" style="
-                      width: 100%;
-                      background: rgba(59, 130, 246, 0.2);
-                      color: #3b82f6;
-                      border: none;
-                      padding: 6px 12px;
-                      border-radius: 8px;
-                      font-size: 11px;
-                      font-weight: 600;
-                      cursor: pointer;
-                      transition: all 0.2s ease;
-                      display: flex;
-                      align-items: center;
-                      justify-content: center;
-                      gap: 6px;
-                    " onmouseover="this.style.background='rgba(59, 130, 246, 0.3)';" 
-                       onmouseout="this.style.background='rgba(59, 130, 246, 0.2)';">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                        <polyline points="15 3 21 3 21 9"></polyline>
-                        <line x1="10" y1="14" x2="21" y2="3"></line>
+              let detailsHTML = '';
+              
+              if (isError) {
+                detailsHTML = `
+                  <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05);">
+                    <div style="font-size: 11px; color: #ef4444; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
                       </svg>
-                      Buka Server Saya
-                    </button>
+                      Gagal memuat data server
+                    </div>
+                    <div style="font-size: 10px; color: #94a3b8;">
+                      Coba refresh halaman atau periksa koneksi Anda.
+                    </div>
                   </div>
-                </div>
-              `;
+                `;
+              } else if (totalServers === 0) {
+                detailsHTML = `
+                  <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05);">
+                    <div style="font-size: 11px; color: #94a3b8; margin-bottom: 8px;">
+                      Anda belum memiliki server
+                    </div>
+                    <div style="font-size: 10px; color: #64748b;">
+                      Buat server baru untuk memulai.
+                    </div>
+                  </div>
+                `;
+              } else {
+                // Show server list
+                detailsHTML = `
+                  <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05);">
+                    <div style="font-size: 11px; color: #94a3b8; margin-bottom: 8px; font-weight: 500;">
+                      Detail Server:
+                    </div>
+                    <div style="max-height: 150px; overflow-y: auto; padding-right: 4px;">
+                      ${serverDetails.length > 0 ? 
+                        serverDetails.map(server => `
+                          <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.03);">
+                            <div style="flex: 1; min-width: 0;">
+                              <div style="font-size: 11px; color: #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                ${server.name}
+                              </div>
+                            </div>
+                            <span style="
+                              font-size: 10px;
+                              padding: 3px 8px;
+                              border-radius: 10px;
+                              background: ${server.status === 'running' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'};
+                              color: ${server.status === 'running' ? '#10b981' : '#ef4444'};
+                              font-weight: 600;
+                            ">
+                              ${server.status === 'running' ? '● Online' : '○ Offline'}
+                            </span>
+                          </div>
+                        `).join('') : 
+                        '<div style="font-size: 10px; color: #94a3b8; text-align: center; padding: 8px;">Tidak ada detail server</div>'
+                      }
+                    </div>
+                    
+                    <div style="margin-top: 10px;">
+                      <button onclick="window.location.href='/client'" style="
+                        width: 100%;
+                        background: rgba(59, 130, 246, 0.2);
+                        color: #3b82f6;
+                        border: none;
+                        padding: 6px 12px;
+                        border-radius: 8px;
+                        font-size: 11px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        transition: all 0.2s ease;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 6px;
+                      " onmouseover="this.style.background='rgba(59, 130, 246, 0.3)';" 
+                         onmouseout="this.style.background='rgba(59, 130, 246, 0.2)';">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                          <polyline points="15 3 21 3 21 9"></polyline>
+                          <line x1="10" y1="14" x2="21" y2="3"></line>
+                        </svg>
+                        Buka Server Saya
+                      </button>
+                    </div>
+                    
+                    ${isCached ? `
+                      <div style="font-size: 9px; color: #f59e0b; text-align: center; margin-top: 6px;">
+                        Data dari cache • Klik untuk refresh
+                      </div>
+                    ` : ''}
+                  </div>
+                `;
+              }
               
               const detailsDiv = document.createElement('div');
               detailsDiv.innerHTML = detailsHTML;
               statsNotification.appendChild(detailsDiv);
               
-              // Adjust height
-              statsNotification.style.maxWidth = '280px';
+              // Adjust height and width
+              statsNotification.style.maxWidth = '320px';
+              
+              // When clicked again (on the details), refresh data
+              statsNotification.addEventListener('click', function refreshHandler(e) {
+                if (e.target.closest('button') || e.target.tagName === 'BUTTON') {
+                  return; // Don't refresh if clicking on button
+                }
+                
+                if (statsNotification.classList.contains('expanded')) {
+                  // Remove and refresh
+                  statsNotification.style.opacity = "0";
+                  statsNotification.style.transform = "translateY(10px) scale(0.95)";
+                  setTimeout(() => {
+                    if (statsNotification.parentNode) {
+                      statsNotification.remove();
+                      checkServerStatus(); // Refresh data
+                    }
+                  }, 200);
+                }
+              });
             }
           });
 
-          // Auto dismiss after 8 seconds
+          // Auto dismiss after 8 seconds (if not expanded)
           setTimeout(() => {
             if (!statsNotification.classList.contains('expanded')) {
               statsNotification.style.opacity = "0";
@@ -293,6 +505,16 @@ cat > "$TARGET_FILE" << 'EOF'
               }, 200);
             }
           }, 8000);
+
+          // Cache the data if successful and not already cached
+          if (!isCached && !isError && totalServers > 0) {
+            localStorage.setItem('pterodactyl_server_cache', JSON.stringify({
+              totalServers,
+              activeServers,
+              serverDetails,
+              timestamp: new Date().getTime()
+            }));
+          }
         };
 
         // Create greeting notification
@@ -303,7 +525,7 @@ cat > "$TARGET_FILE" << 'EOF'
           checkServerStatus();
         }, 800);
 
-        // Add floating refresh button (small and subtle)
+        // Add floating refresh button
         const addFloatingButton = () => {
           const refreshBtn = document.createElement("div");
           refreshBtn.innerHTML = `
@@ -351,12 +573,12 @@ cat > "$TARGET_FILE" << 'EOF'
             refreshBtn.style.transform = "rotate(180deg) scale(1.1)";
             refreshBtn.style.background = "rgba(16, 185, 129, 0.9)";
             
-            // Remove existing notifications
-            document.querySelectorAll('[style*="position: fixed"][style*="bottom: 60px"]').forEach(el => {
+            // Remove existing server notifications
+            document.querySelectorAll('.server-stats-notification').forEach(el => {
               if (el.parentNode) el.remove();
             });
             
-            // Create new notification
+            // Refresh data
             setTimeout(() => {
               checkServerStatus();
               refreshBtn.style.transform = "rotate(0deg) scale(1)";
@@ -366,22 +588,22 @@ cat > "$TARGET_FILE" << 'EOF'
 
           document.body.appendChild(refreshBtn);
 
-          // Auto hide after 12 seconds
+          // Auto hide after 15 seconds
           setTimeout(() => {
             refreshBtn.style.opacity = "0";
             setTimeout(() => {
               if (refreshBtn.parentNode) refreshBtn.remove();
             }, 300);
-          }, 12000);
+          }, 15000);
         };
 
         // Add refresh button after delay
         setTimeout(addFloatingButton, 1200);
 
-        // Periodic check (every 5 minutes)
+        // Periodic check (every 3 minutes)
         setInterval(() => {
           checkServerStatus();
-        }, 300000);
+        }, 180000);
 
       });
     </script>
@@ -389,8 +611,8 @@ cat > "$TARGET_FILE" << 'EOF'
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
       
-      /* Smooth transitions for notifications */
-      [style*="position: fixed"][style*="bottom"] {
+      /* Smooth transitions */
+      .server-stats-notification {
         animation: slideInUp 0.3s ease-out;
       }
       
@@ -404,21 +626,50 @@ cat > "$TARGET_FILE" << 'EOF'
           transform: translateY(0) scale(1);
         }
       }
+      
+      /* Scrollbar styling */
+      div::-webkit-scrollbar {
+        width: 4px;
+      }
+      
+      div::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 2px;
+      }
+      
+      div::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 2px;
+      }
+      
+      div::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
     </style>
 @endsection
 EOF
 
 echo "Isi $TARGET_FILE sudah diganti dengan konten baru!"
 echo ""
-echo " Fitur Server Status yang ditambahkan (Versi Minimalis):"
+echo "✅ Fitur Server Status yang ditambahkan (FIXED):"
+echo "   - Mendeteksi server online/offline secara REAL"
+echo "   - Menggunakan API Pterodactyl yang benar:"
+echo "     • /api/client (untuk daftar server)"
+echo "     • /api/client/servers/{id}/resources (untuk status)"
 echo "   - Notifikasi greeting kompak"
-echo "   - Status server ringkas"
-echo "   - Expand on click untuk detail"
-echo "   - Tombol 'Buka Server Saya' yang berfungsi (arahkan ke /client)"
-echo "   - Tombol refresh floating kecil"
-echo "   - Auto-dismiss dalam 4-8 detik"
-echo "   - Periodic check setiap 5 menit"
+echo "   - Status server real-time dengan warna indikator"
+echo "   - Error handling yang baik"
+echo "   - Caching data di localStorage"
+echo "   - Tombol 'Buka Server Saya' berfungsi (/client)"
+echo "   - Refresh otomatis setiap 3 menit"
 echo ""
-echo " Notifikasi akan muncul di pojok kanan bawah"
-echo " Klik notifikasi server untuk melihat detail lebih lanjut"
-echo " Tombol 'Buka Server Saya' akan mengarahkan ke halaman client panel"
+echo "📊 Fitur pendeteksian:"
+echo "   • Menghitung server online vs offline"
+echo "   • Persentase status server"
+echo "   • Detail server saat diklik"
+echo "   • Fallback ke cache jika API gagal"
+echo ""
+echo "⚠️  Pastikan:"
+echo "   • User sudah login (memiliki session)"
+echo "   • API endpoint Pterodactyl dapat diakses"
+echo "   • CSRF token tersedia di halaman"
