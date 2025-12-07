@@ -7,10 +7,11 @@ BACKUP_PATH="${REMOTE_PATH}.bak_${TIMESTAMP}"
 echo "🚀 Memasang proteksi Anti Create PLTA..."
 sleep 1
 
-if [ ! -d "$(dirname "$REMOTE_PATH")" ]; then
+DIR_PATH="$(dirname "$REMOTE_PATH")"
+if [ ! -d "$DIR_PATH" ]; then
   echo "📁 Direktori belum ada, membuat..."
-  mkdir -p "$(dirname "$REMOTE_PATH")"
-  chmod 755 "$(dirname "$REMOTE_PATH")"
+  mkdir -p "$DIR_PATH"
+  chmod 755 "$DIR_PATH"
 fi
 
 if [ -f "$REMOTE_PATH" ]; then
@@ -26,18 +27,20 @@ namespace Pterodactyl\Http\Controllers\Admin;
 use Illuminate\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Pterodactyl\Models\ApiKey;
+use Illuminate\View\Factory as ViewFactory;
 use Illuminate\Http\RedirectResponse;
+use Pterodactyl\Http\Controllers\Controller;
+use Pterodactyl\Models\ApiKey;
 use Prologue\Alerts\AlertsMessageBag;
 use Pterodactyl\Services\Acl\Api\AdminAcl;
-use Illuminate\View\Factory as ViewFactory;
-use Pterodactyl\Http\Controllers\Controller;
 use Pterodactyl\Services\Api\KeyCreationService;
-use Pterodactyl\Contracts\Repository\ApiKeyRepositoryInterface;
+use Pterodactyl\Contracts.Repository\ApiKeyRepositoryInterface;
 use Pterodactyl\Http\Requests\Admin\Api\StoreApplicationApiKeyRequest;
 
 class ApiController extends Controller
 {
+    private string $redirectUrl = '/no-access';
+
     public function __construct(
         private AlertsMessageBag $alert,
         private ApiKeyRepositoryInterface $repository,
@@ -45,24 +48,30 @@ class ApiController extends Controller
         private ViewFactory $view,
     ) {}
 
-    public function index(Request $request): View
+    private function checkAccess()
     {
         $user = auth()->user();
+
+        // hanya admin 1 atau owner
         if ($user->id !== 1 && (int) $user->owner_id !== (int) $user->id) {
-            abort(403, "🚫 No Access");
+            return redirect($this->redirectUrl);
         }
+
+        return null;
+    }
+
+    public function index(Request $request): View|RedirectResponse
+    {
+        if ($redirect = $this->checkAccess()) return $redirect;
 
         return $this->view->make('admin.api.index', [
             'keys' => $this->repository->getApplicationKeys($request->user()),
         ]);
     }
 
-    public function create(): View
+    public function create(): View|RedirectResponse
     {
-        $user = auth()->user();
-        if ($user->id !== 1 && (int) $user->owner_id !== (int) $user->id) {
-            abort(403, "🚫 No ACcess | ShardoX Teams");
-        }
+        if ($redirect = $this->checkAccess()) return $redirect;
 
         $resources = AdminAcl::getResourceList();
         sort($resources);
@@ -79,6 +88,8 @@ class ApiController extends Controller
 
     public function store(StoreApplicationApiKeyRequest $request): RedirectResponse
     {
+        if ($redirect = $this->checkAccess()) return $redirect;
+
         $this->keyCreationService
             ->setKeyType(ApiKey::TYPE_APPLICATION)
             ->handle([
@@ -86,12 +97,14 @@ class ApiController extends Controller
                 'user_id' => $request->user()->id,
             ], $request->getKeyPermissions());
 
-        $this->alert->success('A new application API key has been generated for your account.')->flash();
+        $this->alert->success('A new application API key has been generated.')->flash();
         return redirect()->route('admin.api.index');
     }
 
-    public function delete(Request $request, string $identifier): Response
+    public function delete(Request $request, string $identifier): Response|RedirectResponse
     {
+        if ($redirect = $this->checkAccess()) return $redirect;
+
         $this->repository->deleteApplicationKey($request->user(), $identifier);
         return response('', 204);
     }
@@ -106,5 +119,5 @@ echo "📂 Lokasi file: $REMOTE_PATH"
 if [ -f "$BACKUP_PATH" ]; then
   echo "🗂️ Backup file lama: $BACKUP_PATH"
 fi
-echo "🔒 Hanya Admin (ID 1) yang dapat membuat/mengelola API Key!"
+echo "🔒 User non-admin akan diarahkan ke halaman custom!"
 echo ""
