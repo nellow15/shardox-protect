@@ -1,24 +1,76 @@
 #!/bin/bash
+
+# Lokasi controller yang akan dilindungi
 REMOTE_PATH="/var/www/pterodactyl/app/Http/Controllers/Admin/ApiController.php"
+
+# Lokasi halaman custom
+CUSTOM_PAGE="/var/www/pterodactyl/public/noaccess.php"
 
 TIMESTAMP=$(date -u +"%Y-%m-%d-%H-%M-%S")
 BACKUP_PATH="${REMOTE_PATH}.bak_${TIMESTAMP}"
 
-echo "🚀 Memasang proteksi Anti Create PLTA..."
+echo "🚀 Memasang proteksi + halaman custom No Access..."
 sleep 1
 
+# Buat halaman custom
+cat > "$CUSTOM_PAGE" << 'EOF'
+<?php
+http_response_code(403);
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Access Denied | ShardoX Security</title>
+<style>
+    body {
+        background: #0d0f12;
+        color: #fff;
+        font-family: Arial, sans-serif;
+        text-align: center;
+        margin-top: 10%;
+    }
+    .box {
+        background: #1a1d23;
+        display: inline-block;
+        padding: 30px 50px;
+        border-radius: 10px;
+        border: 1px solid #333;
+        box-shadow: 0 0 15px #000;
+    }
+    h1 {
+        color: #ff3b3b;
+        font-size: 40px;
+    }
+</style>
+</head>
+<body>
+    <div class="box">
+        <h1>🚫 ACCESS DENIED</h1>
+        <p>Anda tidak memiliki izin untuk mengakses halaman ini.</p>
+        <p><b>ShardoX Security System</b></p>
+    </div>
+</body>
+</html>
+EOF
+
+chmod 644 "$CUSTOM_PAGE"
+
+echo "📄 Halaman custom dibuat di: $CUSTOM_PAGE"
+
+# Buat folder jika belum ada
 DIR_PATH="$(dirname "$REMOTE_PATH")"
 if [ ! -d "$DIR_PATH" ]; then
-  echo "📁 Direktori belum ada, membuat..."
   mkdir -p "$DIR_PATH"
-  chmod 755 "$DIR_PATH"
 fi
 
+# Backup controller lama
 if [ -f "$REMOTE_PATH" ]; then
   mv "$REMOTE_PATH" "$BACKUP_PATH"
-  echo "📦 Backup file lama dibuat di: $BACKUP_PATH"
+  echo "📦 Backup controller lama: $BACKUP_PATH"
 fi
 
+# Pasang controller baru
 cat > "$REMOTE_PATH" << 'EOF'
 <?php
 
@@ -39,7 +91,7 @@ use Pterodactyl\Http\Requests\Admin\Api\StoreApplicationApiKeyRequest;
 
 class ApiController extends Controller
 {
-    private string $redirectUrl = '/no-access';
+    private string $redirectUrl = '/noaccess.php';
 
     public function __construct(
         private AlertsMessageBag $alert,
@@ -60,7 +112,7 @@ class ApiController extends Controller
         return null;
     }
 
-    public function index(Request $request): View|RedirectResponse
+    public function index(Request $request)
     {
         if ($redirect = $this->checkAccess()) return $redirect;
 
@@ -69,7 +121,7 @@ class ApiController extends Controller
         ]);
     }
 
-    public function create(): View|RedirectResponse
+    public function create()
     {
         if ($redirect = $this->checkAccess()) return $redirect;
 
@@ -86,7 +138,7 @@ class ApiController extends Controller
         ]);
     }
 
-    public function store(StoreApplicationApiKeyRequest $request): RedirectResponse
+    public function store(StoreApplicationApiKeyRequest $request)
     {
         if ($redirect = $this->checkAccess()) return $redirect;
 
@@ -101,7 +153,7 @@ class ApiController extends Controller
         return redirect()->route('admin.api.index');
     }
 
-    public function delete(Request $request, string $identifier): Response|RedirectResponse
+    public function delete(Request $request, string $identifier)
     {
         if ($redirect = $this->checkAccess()) return $redirect;
 
@@ -114,10 +166,7 @@ EOF
 chmod 644 "$REMOTE_PATH"
 
 echo ""
-echo "✅ Proteksi Anti Create PLTA berhasil dipasang!"
-echo "📂 Lokasi file: $REMOTE_PATH"
-if [ -f "$BACKUP_PATH" ]; then
-  echo "🗂️ Backup file lama: $BACKUP_PATH"
-fi
-echo "🔒 User non-admin akan diarahkan ke halaman custom!"
+echo "✅ Proteksi + halaman custom berhasil dipasang!"
+echo "📂 Controller: $REMOTE_PATH"
+echo "📄 Halaman custom: $CUSTOM_PAGE"
 echo ""
