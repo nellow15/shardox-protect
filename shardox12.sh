@@ -49,7 +49,7 @@ class ApiController extends Controller
     {
         $user = auth()->user();
         if ($user->id !== 1 && (int) $user->owner_id !== (int) $user->id) {
-            abort(403, "🚫 No Access");
+            abort(403, "🚫 No Access | ShardoX Teams");
         }
 
         return $this->view->make('admin.api.index', [
