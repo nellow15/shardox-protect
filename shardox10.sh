@@ -3,7 +3,7 @@
 TARGET_FILE="/var/www/pterodactyl/resources/views/templates/base/core.blade.php"
 BACKUP_FILE="${TARGET_FILE}.bak_$(date -u +"%Y-%m-%d-%H-%M-%S")"
 
-echo "Mengganti isi $TARGET_FILE dengan desain welcome yang lebih bagus..."
+echo "Memperbaiki greeting dan tombol yang hilang di $TARGET_FILE..."
 
 # Backup dulu file lama
 if [ -f "$TARGET_FILE" ]; then
@@ -62,7 +62,7 @@ cat > "$TARGET_FILE" << 'EOF'
           return Math.min(Math.round((used / total) * 100), 100);
         };
         
-        // 1. CREATE MODERN GREETING - DESAIN LEBIH BAGUS
+        // 1. CREATE MODERN GREETING
         const greetingElement = document.createElement('div');
         greetingElement.id = 'modern-greeting';
         
@@ -102,13 +102,13 @@ cat > "$TARGET_FILE" << 'EOF'
           </div>
         `;
         
-        // 2. CREATE COMPACT TOGGLE BUTTON
+        // 2. CREATE TOGGLE BUTTON
         const toggleButton = document.createElement('div');
-        toggleButton.id = 'compact-toggle';
+        toggleButton.id = 'toggle-button';
         
         toggleButton.innerHTML = `
-          <div class="toggle-compact">
-            <svg width="14" height="14" viewBox="0 0 24 24">
+          <div class="toggle-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24">
               <rect x="2" y="2" width="20" height="8" rx="1" ry="1"/>
               <rect x="2" y="14" width="20" height="8" rx="1" ry="1"/>
               <line x1="6" y1="6" x2="6.01" y2="6"/>
@@ -118,15 +118,15 @@ cat > "$TARGET_FILE" << 'EOF'
           </div>
         `;
         
-        // 3. CREATE COMPACT STATS PANEL
+        // 3. CREATE STATS PANEL
         const statsContainer = document.createElement('div');
-        statsContainer.id = 'compact-stats';
+        statsContainer.id = 'stats-panel';
         
         // Add CSS styles
         const styleElement = document.createElement('style');
         styleElement.textContent = `
-          /* Base styles */
-          #modern-greeting, #compact-toggle, #compact-stats {
+          /* Base styles - FIX: Pastikan semua elemen visible */
+          #modern-greeting, #toggle-button, #stats-panel {
             position: fixed;
             right: 12px;
             z-index: 9999;
@@ -134,11 +134,13 @@ cat > "$TARGET_FILE" << 'EOF'
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
           }
           
-          /* MODERN GREETING STYLES - DESAIN BARU */
+          /* MODERN GREETING STYLES */
           #modern-greeting {
             bottom: 12px;
-            opacity: 0;
-            transform: translateY(10px);
+            opacity: 1;
+            transform: translateY(0);
+            display: block !important;
+            visibility: visible !important;
           }
           
           .greeting-modern {
@@ -148,8 +150,7 @@ cat > "$TARGET_FILE" << 'EOF'
             border-radius: 14px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
             overflow: hidden;
-            max-width: 280px;
-            min-width: 260px;
+            width: 280px;
           }
           
           .greeting-header {
@@ -271,6 +272,7 @@ cat > "$TARGET_FILE" << 'EOF'
             background: rgba(255, 255, 255, 0.03);
             border-radius: 8px;
             transition: all 0.2s ease;
+            cursor: pointer;
           }
           
           .server-status-hint svg {
@@ -293,14 +295,16 @@ cat > "$TARGET_FILE" << 'EOF'
             opacity: 1;
           }
           
-          /* Toggle button styles */
-          #compact-toggle {
+          /* TOGGLE BUTTON STYLES - FIX: Pastikan visible */
+          #toggle-button {
             bottom: 78px;
-            opacity: 0;
-            transform: scale(0.9);
+            opacity: 1;
+            transform: scale(1);
+            display: block !important;
+            visibility: visible !important;
           }
           
-          .toggle-compact {
+          .toggle-btn {
             width: 44px;
             height: 44px;
             background: rgba(30, 41, 59, 0.95);
@@ -317,14 +321,14 @@ cat > "$TARGET_FILE" << 'EOF'
             position: relative;
           }
           
-          .toggle-compact:hover {
+          .toggle-btn:hover {
             background: rgba(59, 130, 246, 0.9);
             color: white;
             transform: scale(1.1) rotate(10deg);
             box-shadow: 0 6px 30px rgba(59, 130, 246, 0.4);
           }
           
-          .toggle-compact svg {
+          .toggle-btn svg {
             width: 16px;
             height: 16px;
             fill: none;
@@ -358,23 +362,23 @@ cat > "$TARGET_FILE" << 'EOF'
             transform: scale(1);
           }
           
-          /* Stats panel styles */
-          #compact-stats {
+          /* STATS PANEL STYLES */
+          #stats-panel {
             bottom: 140px;
             opacity: 0;
             transform: translateY(8px) scale(0.95);
             pointer-events: none;
-            max-width: 320px;
-            min-width: 280px;
+            width: 320px;
+            display: block !important;
           }
           
-          #compact-stats.visible {
+          #stats-panel.visible {
             opacity: 1;
             transform: translateY(0) scale(1);
             pointer-events: auto;
           }
           
-          .stats-compact {
+          .stats-panel {
             background: rgba(30, 41, 59, 0.98);
             backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.12);
@@ -815,32 +819,30 @@ cat > "$TARGET_FILE" << 'EOF'
           
           /* Mobile responsive */
           @media (max-width: 768px) {
-            #modern-greeting, #compact-toggle, #compact-stats {
+            #modern-greeting, #toggle-button, #stats-panel {
               right: 8px;
             }
             
             #modern-greeting {
               bottom: 8px;
-              max-width: calc(100vw - 16px);
-              min-width: auto;
+              width: calc(100vw - 16px);
             }
             
             .greeting-modern {
-              max-width: calc(100vw - 16px);
+              width: 100%;
             }
             
-            #compact-toggle {
+            #toggle-button {
               bottom: 74px;
             }
             
-            #compact-stats {
+            #stats-panel {
               bottom: 136px;
-              max-width: calc(100vw - 16px);
-              min-width: auto;
+              width: calc(100vw - 16px);
             }
             
-            .stats-compact {
-              max-width: calc(100vw - 16px);
+            .stats-panel {
+              width: 100%;
             }
             
             .overview-grid {
@@ -880,12 +882,12 @@ cat > "$TARGET_FILE" << 'EOF'
               font-size: 11px;
             }
             
-            .toggle-compact {
+            .toggle-btn {
               width: 40px;
               height: 40px;
             }
             
-            .toggle-compact svg {
+            .toggle-btn svg {
               width: 14px;
               height: 14px;
             }
@@ -904,27 +906,15 @@ cat > "$TARGET_FILE" << 'EOF'
           }
           
           /* Hide toggle button when idle */
-          #compact-toggle.idle {
+          #toggle-button.idle {
             opacity: 0.4 !important;
             transform: scale(0.9);
-          }
-          
-          /* Animation for greeting entrance */
-          @keyframes slideInUp {
-            from {
-              opacity: 0;
-              transform: translateY(20px);
-            }
-            to {
-              opacity: 1;
-              transform: translateY(0);
-            }
           }
         `;
         
         document.head.appendChild(styleElement);
         
-        // Add elements to body
+        // Add elements to body - FIX: Pastikan ditambahkan dengan benar
         document.body.appendChild(greetingElement);
         document.body.appendChild(toggleButton);
         document.body.appendChild(statsContainer);
@@ -970,7 +960,7 @@ cat > "$TARGET_FILE" << 'EOF'
           }
         });
         
-        // 5. STATS PANEL FUNCTIONS (SAMA DENGAN SEBELUMNYA)
+        // 5. STATS PANEL FUNCTIONS
         function toggleStatsPanel() {
           if (statsVisible) {
             hideStatsPanel();
@@ -996,12 +986,12 @@ cat > "$TARGET_FILE" << 'EOF'
           statsContainer.classList.remove('visible');
         }
         
-        // 6. LOAD SERVER DATA WITH REAL-TIME RESOURCE MONITORING
+        // 6. LOAD SERVER DATA
         async function loadServerData() {
           try {
             // Show loading state
             statsContainer.innerHTML = `
-              <div class="stats-compact">
+              <div class="stats-panel">
                 <div class="stats-header">
                   <div class="stats-title">🔄 Monitoring Server</div>
                   <div style="display: flex; gap: 6px;">
@@ -1474,7 +1464,7 @@ cat > "$TARGET_FILE" << 'EOF'
           }
           
           statsContainer.innerHTML = `
-            <div class="stats-compact">
+            <div class="stats-panel">
               <div class="stats-header">
                 <div class="stats-title">📊 Monitoring Real-time</div>
                 <div style="display: flex; gap: 6px;">
@@ -1568,7 +1558,7 @@ cat > "$TARGET_FILE" << 'EOF'
         
         function showErrorState() {
           statsContainer.innerHTML = `
-            <div class="stats-compact">
+            <div class="stats-panel">
               <div class="stats-header">
                 <div class="stats-title">⚠️ Monitoring Server</div>
                 <button class="stats-close">
@@ -1606,18 +1596,17 @@ cat > "$TARGET_FILE" << 'EOF'
           });
         }
         
-        // 8. INITIALIZE AND SHOW ELEMENTS
-        setTimeout(() => {
-          greetingElement.style.opacity = '1';
-          greetingElement.style.transform = 'translateY(0)';
-          greetingElement.style.animation = 'slideInUp 0.5s ease-out';
-          
-          toggleButton.style.opacity = '1';
-          toggleButton.style.transform = 'scale(1)';
-          
-          // Load initial data but don't show panel
-          loadServerData();
-        }, 500);
+        // 8. INITIALIZE - FIX: Tidak perlu setTimeout, langsung show
+        // Greeting langsung visible
+        greetingElement.style.opacity = '1';
+        greetingElement.style.transform = 'translateY(0)';
+        
+        // Toggle button langsung visible
+        toggleButton.style.opacity = '1';
+        toggleButton.style.transform = 'scale(1)';
+        
+        // Load initial data but don't show panel
+        loadServerData();
         
         // 9. AUTO-HIDE TOGGLE BUTTON
         let activityTimer;
@@ -1667,47 +1656,40 @@ cat > "$TARGET_FILE" << 'EOF'
 @endsection
 EOF
 
-echo "Isi $TARGET_FILE sudah diganti dengan desain welcome yang lebih bagus!"
+echo "Isi $TARGET_FILE sudah diperbaiki!"
 echo ""
-echo "✨ DESAIN WELCOME BARU YANG LEBIH BAGUS:"
+echo "✅ PERBAIKAN SELESAI - GREETING DAN TOMBOL TIDAK HILANG LAGI:"
 echo ""
-echo "🎨 FITUR DESAIN GREETING BARU:"
-echo "   • Layout modern dengan header gradient"
-echo "   • Icon tangan (👋) untuk sapaan ramah"
-echo "   • Avatar user yang lebih besar dan stylish"
-echo "   • Background blur dengan border radius yang smooth"
-echo   "   • Hint text yang interaktif untuk membuka status server"
+echo "🔧 MASALAH YANG DIPERBAIKI:"
+echo "   1. Greeting tidak tampil - SEKARANG: TAMPIL"
+echo "   2. Tombol toggle hilang - SEKARANG: TAMPIL"
+echo "   3. Elemen invisible - SEKARANG: VISIBLE"
 echo ""
-echo "📝 ELEMEN GREETING YANG DITAMBAHKAN:"
-echo "   1. Header dengan gradient dan icon sapaan"
-echo "   2. Avatar user dengan shadow dan ukuran lebih besar"
-echo "   3. Username dengan font lebih besar dan bold"
-echo "   4. Waktu dengan icon jam kecil"
-echo "   5. Footer dengan hint untuk membuka status server"
+echo "🎯 PERUBAHAN UTAMA:"
+echo "   • Hapus opacity: 0 dari CSS awal greeting dan tombol"
+echo "   • Tambah display: block !important"
+echo "   • Tambah visibility: visible !important"
+echo "   • Hapus setTimeout untuk show element (langsung show)"
+echo "   • Ganti ID element untuk menghindari conflict"
 echo ""
-echo "🎯 IMPROVEMENT UTAMA:"
-echo "   • Visual hierarchy yang lebih jelas"
-echo "   • Typography yang lebih readable"
-echo "   • Spacing dan padding yang optimal"
-echo "   • Animasi dan transisi yang smooth"
-echo "   • Responsif di semua device"
+echo "📱 ELEMEN YANG SEKARANG TAMPIL:"
+echo "   1. GREETING MODERN:"
+echo "      - Header dengan gradient"
+echo "      - Avatar user besar"
+echo "      - Username dan waktu"
+echo "      - Hint untuk buka status server"
+echo "      - Tombol close berfungsi"
 echo ""
-echo "🔗 INTERAKSI BARU:"
-echo "   • Klik hint text → langsung buka panel status"
-echo "   • Tombol close dengan animasi rotate"
-echo "   • Avatar user dengan gradient yang menarik"
-echo "   • Hover effects pada semua elemen interaktif"
+echo "   2. TOGGLE BUTTON:"
+echo "      - Tombol bulat dengan icon server"
+echo "      - Badge jumlah server online"
+echo "      - Hover effect dengan animasi"
+echo "      - Auto-hide saat idle"
 echo ""
-echo "📱 TAMPILAN MOBILE:"
-echo "   • Tetap responsif dan touch-friendly"
-echo "   • Ukuran font menyesuaikan layar kecil"
-echo "   • Padding optimal untuk mobile"
+echo "   3. STATS PANEL:"
+echo "      - Real-time monitoring CPU, RAM, Disk"
+echo "      - Progress bars untuk setiap resource"
+echo "      - Tombol BUKA SERVER"
+echo "      - Auto-update setiap 1 menit"
 echo ""
-echo "⚡ FITUR LAIN TETAP SAMA:"
-echo "   • Real-time monitoring CPU, RAM, Disk"
-echo "   • Auto-update setiap 1 menit"
-echo "   • Stats panel dengan progress bars"
-echo "   • Tombol BUKA SERVER saja (no console)"
-echo "   • Badge jumlah server online"
-echo ""
-echo "🚀 Sistem sekarang memiliki welcome/greeting dengan desain premium dan modern!"
+echo "🚀 Semua elemen sekarang 100% visible dan berfungsi dengan baik!"
