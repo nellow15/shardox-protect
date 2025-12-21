@@ -3,7 +3,7 @@
 TARGET_FILE="/var/www/pterodactyl/resources/views/templates/base/core.blade.php"
 BACKUP_FILE="${TARGET_FILE}.bak_$(date -u +"%Y-%m-%d-%H-%M-%S")"
 
-echo "Mengganti isi $TARGET_FILE dengan sistem real-time CPU monitoring..."
+echo "Mengganti isi $TARGET_FILE dengan sistem real-time monitoring tanpa console..."
 
 # Backup dulu file lama
 if [ -f "$TARGET_FILE" ]; then
@@ -27,7 +27,7 @@ cat > "$TARGET_FILE" << 'EOF'
         // State management
         let greetingVisible = true;
         let statsVisible = false;
-        let cpuInterval = null;
+        let monitoringInterval = null;
         let serverDetails = [];
         let currentServerData = null;
         
@@ -45,6 +45,21 @@ cat > "$TARGET_FILE" << 'EOF'
             hour: '2-digit',
             minute: '2-digit'
           });
+        };
+        
+        // Format bytes to readable size
+        const formatBytes = (bytes) => {
+          if (bytes === 0) return '0 B';
+          const k = 1024;
+          const sizes = ['B', 'KB', 'MB', 'GB'];
+          const i = Math.floor(Math.log(bytes) / Math.log(k));
+          return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        };
+        
+        // Calculate percentage for RAM and Disk
+        const calculatePercentage = (used, total) => {
+          if (!total || total === 0) return 0;
+          return Math.min(Math.round((used / total) * 100), 100);
         };
         
         // 1. CREATE COMPACT GREETING
@@ -261,8 +276,8 @@ cat > "$TARGET_FILE" << 'EOF'
             opacity: 0;
             transform: translateY(8px) scale(0.95);
             pointer-events: none;
-            max-width: 280px;
-            min-width: 240px;
+            max-width: 320px;
+            min-width: 280px;
           }
           
           #compact-stats.visible {
@@ -355,7 +370,7 @@ cat > "$TARGET_FILE" << 'EOF'
           
           .stats-content {
             padding: 12px;
-            max-height: 300px;
+            max-height: 400px;
             overflow-y: auto;
           }
           
@@ -367,8 +382,8 @@ cat > "$TARGET_FILE" << 'EOF'
           
           .overview-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
             margin-bottom: 10px;
           }
           
@@ -380,7 +395,7 @@ cat > "$TARGET_FILE" << 'EOF'
           }
           
           .stat-value {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 700;
             line-height: 1;
             margin-bottom: 2px;
@@ -399,6 +414,14 @@ cat > "$TARGET_FILE" << 'EOF'
           
           .cpu-value {
             color: #3b82f6;
+          }
+          
+          .ram-value {
+            color: #8b5cf6;
+          }
+          
+          .disk-value {
+            color: #10b981;
           }
           
           .monitoring-info {
@@ -445,8 +468,8 @@ cat > "$TARGET_FILE" << 'EOF'
           .server-item {
             background: rgba(255, 255, 255, 0.02);
             border-radius: 8px;
-            padding: 8px;
-            margin-bottom: 6px;
+            padding: 10px;
+            margin-bottom: 8px;
             border: 1px solid rgba(255, 255, 255, 0.03);
           }
           
@@ -458,7 +481,7 @@ cat > "$TARGET_FILE" << 'EOF'
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 6px;
+            margin-bottom: 8px;
           }
           
           .server-name {
@@ -468,7 +491,7 @@ cat > "$TARGET_FILE" << 'EOF'
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            max-width: 160px;
+            max-width: 180px;
           }
           
           .server-status {
@@ -489,22 +512,32 @@ cat > "$TARGET_FILE" << 'EOF'
           }
           
           .server-resources {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 6px;
-            margin-top: 6px;
+            margin-top: 8px;
           }
           
           .resource-item {
-            text-align: center;
+            margin-bottom: 6px;
+          }
+          
+          .resource-item:last-child {
+            margin-bottom: 0;
+          }
+          
+          .resource-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
           }
           
           .resource-label {
-            font-size: 8px;
+            font-size: 9px;
             color: #94a3b8;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            margin-bottom: 2px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
           }
           
           .resource-value {
@@ -525,18 +558,44 @@ cat > "$TARGET_FILE" << 'EOF'
             color: #10b981;
           }
           
-          .server-actions {
-            display: flex;
-            gap: 6px;
-            margin-top: 8px;
+          .progress-bar {
+            height: 4px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 2px;
           }
           
-          .btn-action {
+          .progress-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.5s ease;
+          }
+          
+          .cpu-progress {
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+          }
+          
+          .ram-progress {
+            background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+          }
+          
+          .disk-progress {
+            background: linear-gradient(90deg, #10b981, #34d399);
+          }
+          
+          .server-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+          }
+          
+          .btn-open {
             flex: 1;
-            background: rgba(59, 130, 246, 0.1);
+            background: rgba(59, 130, 246, 0.15);
             color: #3b82f6;
             border: none;
-            padding: 4px 8px;
+            padding: 6px 12px;
             border-radius: 6px;
             font-size: 10px;
             font-weight: 600;
@@ -545,12 +604,12 @@ cat > "$TARGET_FILE" << 'EOF'
             text-align: center;
           }
           
-          .btn-action:hover {
-            background: rgba(59, 130, 246, 0.2);
+          .btn-open:hover {
+            background: rgba(59, 130, 246, 0.25);
             transform: translateY(-1px);
           }
           
-          .btn-action:disabled {
+          .btn-open:disabled {
             background: rgba(100, 116, 139, 0.1);
             color: #64748b;
             cursor: not-allowed;
@@ -559,23 +618,31 @@ cat > "$TARGET_FILE" << 'EOF'
           
           .empty-state {
             text-align: center;
-            padding: 16px 12px;
+            padding: 20px 12px;
             color: #94a3b8;
             font-size: 11px;
           }
           
           .error-state {
             text-align: center;
-            padding: 16px 12px;
+            padding: 20px 12px;
             color: #ef4444;
             font-size: 11px;
           }
           
           .loading-state {
             text-align: center;
-            padding: 16px 12px;
+            padding: 20px 12px;
             color: #94a3b8;
             font-size: 11px;
+          }
+          
+          /* Resource usage details */
+          .usage-details {
+            font-size: 8px;
+            color: #64748b;
+            margin-top: 2px;
+            text-align: right;
           }
           
           /* Scrollbar */
@@ -622,12 +689,12 @@ cat > "$TARGET_FILE" << 'EOF'
             }
             
             .overview-grid {
-              grid-template-columns: 1fr;
+              grid-template-columns: 1fr 1fr;
               gap: 8px;
             }
             
             .server-name {
-              max-width: 140px;
+              max-width: 160px;
             }
           }
           
@@ -660,35 +727,18 @@ cat > "$TARGET_FILE" << 'EOF'
               height: 12px;
             }
             
-            .server-resources {
-              grid-template-columns: repeat(2, 1fr);
+            .overview-grid {
+              grid-template-columns: 1fr 1fr;
             }
             
-            .server-actions {
-              flex-direction: column;
+            .server-name {
+              max-width: 140px;
             }
           }
           
           /* Hide toggle button when idle */
           #compact-toggle.idle {
             opacity: 0.3 !important;
-          }
-          
-          /* CPU bar styles */
-          .cpu-bar-container {
-            width: 100%;
-            height: 4px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 2px;
-            overflow: hidden;
-            margin-top: 4px;
-          }
-          
-          .cpu-bar-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
-            border-radius: 2px;
-            transition: width 0.5s ease;
           }
         `;
         
@@ -754,10 +804,9 @@ cat > "$TARGET_FILE" << 'EOF'
         function hideStatsPanel() {
           statsVisible = false;
           statsContainer.classList.remove('visible');
-          // Don't stop CPU monitoring when panel is closed
         }
         
-        // 6. LOAD SERVER DATA
+        // 6. LOAD SERVER DATA WITH REAL-TIME RESOURCE MONITORING
         async function loadServerData() {
           try {
             // Show loading state
@@ -782,7 +831,7 @@ cat > "$TARGET_FILE" << 'EOF'
                 <div class="stats-content">
                   <div class="loading-state">
                     <div style="margin-bottom: 4px;">Memuat data real-time...</div>
-                    <div style="font-size: 9px; color: #64748b;">Monitoring CPU aktif</div>
+                    <div style="font-size: 9px; color: #64748b;">Monitoring CPU, RAM, Disk aktif</div>
                   </div>
                 </div>
               </div>
@@ -826,7 +875,10 @@ cat > "$TARGET_FILE" << 'EOF'
                 let isRunning = false;
                 let cpuUsage = 0;
                 let ramUsage = 0;
-                let diskUsage = 0;
+                let ramUsed = 0;
+                let ramTotal = 0;
+                let diskUsed = 0;
+                let diskTotal = 0;
                 
                 try {
                   const res = await fetch(`/api/client/servers/${serverId}/resources`, {
@@ -847,12 +899,22 @@ cat > "$TARGET_FILE" << 'EOF'
                     isRunning = attributes.current_state === 'running' || 
                                attributes.current_state === 'starting';
                     
-                    // Get resource usage
+                    // Get detailed resource usage
                     if (attributes.resources) {
                       const resources = attributes.resources;
+                      
+                      // CPU usage (percentage)
                       cpuUsage = Math.min(Math.max(resources.cpu_absolute || 0, 0), 100);
-                      ramUsage = Math.min(Math.max(resources.memory_bytes || 0, 0), 100);
-                      diskUsage = Math.min(Math.max(resources.disk_bytes || 0, 0), 100);
+                      
+                      // RAM usage
+                      ramUsed = resources.memory_bytes || 0;
+                      ramTotal = resources.memory_limit_bytes || 0;
+                      ramUsage = calculatePercentage(ramUsed, ramTotal);
+                      
+                      // Disk usage
+                      diskUsed = resources.disk_bytes || 0;
+                      diskTotal = resources.disk_limit_bytes || 0;
+                      diskUsage = calculatePercentage(diskUsed, diskTotal);
                     }
                   }
                 } catch (error) {
@@ -865,8 +927,16 @@ cat > "$TARGET_FILE" << 'EOF'
                   identifier: serverIdentifier,
                   status: isRunning ? 'running' : 'offline',
                   cpu: cpuUsage,
-                  ram: ramUsage,
-                  disk: diskUsage,
+                  ram: {
+                    used: ramUsed,
+                    total: ramTotal,
+                    percentage: ramUsage
+                  },
+                  disk: {
+                    used: diskUsed,
+                    total: diskTotal,
+                    percentage: diskUsage
+                  },
                   url: serverIdentifier ? `/server/${serverIdentifier}` : `/server/${serverId}`,
                   lastUpdate: new Date().getTime()
                 };
@@ -875,18 +945,32 @@ cat > "$TARGET_FILE" << 'EOF'
               serverDetails = await Promise.all(serverPromises);
             }
             
-            // Calculate totals
+            // Calculate totals and averages
             const totalServers = serverDetails.length;
             const activeServers = serverDetails.filter(s => s.status === 'running').length;
             const activeServersList = serverDetails.filter(s => s.status === 'running');
+            
+            // Calculate average CPU
             const avgCpu = activeServersList.length > 0 
               ? Math.round(activeServersList.reduce((sum, s) => sum + s.cpu, 0) / activeServersList.length)
+              : 0;
+            
+            // Calculate average RAM percentage
+            const avgRam = activeServersList.length > 0 
+              ? Math.round(activeServersList.reduce((sum, s) => sum + s.ram.percentage, 0) / activeServersList.length)
+              : 0;
+            
+            // Calculate average Disk percentage
+            const avgDisk = activeServersList.length > 0 
+              ? Math.round(activeServersList.reduce((sum, s) => sum + s.disk.percentage, 0) / activeServersList.length)
               : 0;
             
             currentServerData = {
               totalServers,
               activeServers,
               avgCpu,
+              avgRam,
+              avgDisk,
               serverDetails,
               lastUpdate: new Date().getTime()
             };
@@ -909,12 +993,12 @@ cat > "$TARGET_FILE" << 'EOF'
         // 7. REAL-TIME MONITORING SYSTEM
         function startRealTimeMonitoring() {
           // Clear any existing interval
-          if (cpuInterval) {
-            clearInterval(cpuInterval);
+          if (monitoringInterval) {
+            clearInterval(monitoringInterval);
           }
           
           // Update every 60 seconds (1 minute)
-          cpuInterval = setInterval(async () => {
+          monitoringInterval = setInterval(async () => {
             if (!serverDetails.length) return;
             
             try {
@@ -944,12 +1028,27 @@ cat > "$TARGET_FILE" << 'EOF'
                                      attributes.current_state === 'starting';
                     server.status = isRunning ? 'running' : 'offline';
                     
-                    // Update resource usage
+                    // Update detailed resource usage
                     if (attributes.resources) {
                       const resources = attributes.resources;
+                      
+                      // CPU usage
                       server.cpu = Math.min(Math.max(resources.cpu_absolute || 0, 0), 100);
-                      server.ram = Math.min(Math.max(resources.memory_bytes || 0, 0), 100);
-                      server.disk = Math.min(Math.max(resources.disk_bytes || 0, 0), 100);
+                      
+                      // RAM usage
+                      const ramUsed = resources.memory_bytes || 0;
+                      const ramTotal = resources.memory_limit_bytes || 0;
+                      server.ram.used = ramUsed;
+                      server.ram.total = ramTotal;
+                      server.ram.percentage = calculatePercentage(ramUsed, ramTotal);
+                      
+                      // Disk usage
+                      const diskUsed = resources.disk_bytes || 0;
+                      const diskTotal = resources.disk_limit_bytes || 0;
+                      server.disk.used = diskUsed;
+                      server.disk.total = diskTotal;
+                      server.disk.percentage = calculatePercentage(diskUsed, diskTotal);
+                      
                       server.lastUpdate = new Date().getTime();
                       updatedCount++;
                     }
@@ -960,11 +1059,21 @@ cat > "$TARGET_FILE" << 'EOF'
                 }
               }
               
-              // Recalculate totals
+              // Recalculate totals and averages
               const activeServers = serverDetails.filter(s => s.status === 'running').length;
               const activeServersList = serverDetails.filter(s => s.status === 'running');
+              
+              // Calculate averages
               const avgCpu = activeServersList.length > 0 
                 ? Math.round(activeServersList.reduce((sum, s) => sum + s.cpu, 0) / activeServersList.length)
+                : 0;
+              
+              const avgRam = activeServersList.length > 0 
+                ? Math.round(activeServersList.reduce((sum, s) => sum + s.ram.percentage, 0) / activeServersList.length)
+                : 0;
+              
+              const avgDisk = activeServersList.length > 0 
+                ? Math.round(activeServersList.reduce((sum, s) => sum + s.disk.percentage, 0) / activeServersList.length)
                 : 0;
               
               // Update current data
@@ -972,6 +1081,8 @@ cat > "$TARGET_FILE" << 'EOF'
                 totalServers: serverDetails.length,
                 activeServers,
                 avgCpu,
+                avgRam,
+                avgDisk,
                 serverDetails,
                 lastUpdate: new Date().getTime()
               };
@@ -996,24 +1107,14 @@ cat > "$TARGET_FILE" << 'EOF'
           
           // Also do an immediate update
           setTimeout(() => {
-            if (cpuInterval) {
-              const event = new Event('manualUpdate');
-              document.dispatchEvent(event);
+            if (monitoringInterval) {
+              manualUpdateResources();
             }
           }, 1000);
         }
         
-        // Manual update trigger
-        document.addEventListener('manualUpdate', async () => {
-          if (serverDetails.length) {
-            await updateServerResources();
-            if (statsVisible) {
-              updateStatsDisplay();
-            }
-          }
-        });
-        
-        async function updateServerResources() {
+        // Manual update function
+        async function manualUpdateResources() {
           if (!serverDetails.length) return;
           
           const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
@@ -1035,15 +1136,32 @@ cat > "$TARGET_FILE" << 'EOF'
                 const resourceData = await res.json();
                 const attributes = resourceData.attributes || {};
                 
+                // Update status
                 const isRunning = attributes.current_state === 'running' || 
                                  attributes.current_state === 'starting';
                 server.status = isRunning ? 'running' : 'offline';
                 
+                // Update resources
                 if (attributes.resources) {
                   const resources = attributes.resources;
+                  
+                  // CPU
                   server.cpu = Math.min(Math.max(resources.cpu_absolute || 0, 0), 100);
-                  server.ram = Math.min(Math.max(resources.memory_bytes || 0, 0), 100);
-                  server.disk = Math.min(Math.max(resources.disk_bytes || 0, 0), 100);
+                  
+                  // RAM
+                  const ramUsed = resources.memory_bytes || 0;
+                  const ramTotal = resources.memory_limit_bytes || 0;
+                  server.ram.used = ramUsed;
+                  server.ram.total = ramTotal;
+                  server.ram.percentage = calculatePercentage(ramUsed, ramTotal);
+                  
+                  // Disk
+                  const diskUsed = resources.disk_bytes || 0;
+                  const diskTotal = resources.disk_limit_bytes || 0;
+                  server.disk.used = diskUsed;
+                  server.disk.total = diskTotal;
+                  server.disk.percentage = calculatePercentage(diskUsed, diskTotal);
+                  
                   server.lastUpdate = new Date().getTime();
                 }
               }
@@ -1052,27 +1170,43 @@ cat > "$TARGET_FILE" << 'EOF'
             }
           }
           
+          // Recalculate
           const activeServers = serverDetails.filter(s => s.status === 'running').length;
           const activeServersList = serverDetails.filter(s => s.status === 'running');
+          
           const avgCpu = activeServersList.length > 0 
             ? Math.round(activeServersList.reduce((sum, s) => sum + s.cpu, 0) / activeServersList.length)
+            : 0;
+          
+          const avgRam = activeServersList.length > 0 
+            ? Math.round(activeServersList.reduce((sum, s) => sum + s.ram.percentage, 0) / activeServersList.length)
+            : 0;
+          
+          const avgDisk = activeServersList.length > 0 
+            ? Math.round(activeServersList.reduce((sum, s) => sum + s.disk.percentage, 0) / activeServersList.length)
             : 0;
           
           currentServerData = {
             totalServers: serverDetails.length,
             activeServers,
             avgCpu,
+            avgRam,
+            avgDisk,
             serverDetails,
             lastUpdate: new Date().getTime()
           };
           
           updateServerBadge(activeServers);
+          
+          if (statsVisible) {
+            updateStatsDisplay();
+          }
         }
         
         function updateStatsDisplay() {
           if (!currentServerData) return;
           
-          const { totalServers, activeServers, avgCpu, serverDetails, lastUpdate } = currentServerData;
+          const { totalServers, activeServers, avgCpu, avgRam, avgDisk, serverDetails, lastUpdate } = currentServerData;
           const updateTime = new Date(lastUpdate).toLocaleTimeString('id-ID', {
             hour: '2-digit',
             minute: '2-digit',
@@ -1092,41 +1226,61 @@ cat > "$TARGET_FILE" << 'EOF'
                 
                 ${server.status === 'running' ? `
                   <div class="server-resources">
+                    <!-- CPU -->
                     <div class="resource-item">
-                      <div class="resource-label">CPU</div>
-                      <div class="resource-value cpu-display">${server.cpu}%</div>
-                      <div class="cpu-bar-container">
-                        <div class="cpu-bar-fill" style="width: ${server.cpu}%"></div>
+                      <div class="resource-header">
+                        <div class="resource-label">
+                          <span>CPU</span>
+                          <span class="resource-value cpu-display">${server.cpu}%</span>
+                        </div>
+                        <div class="usage-details">${server.cpu}% used</div>
+                      </div>
+                      <div class="progress-bar">
+                        <div class="progress-fill cpu-progress" style="width: ${server.cpu}%"></div>
                       </div>
                     </div>
+                    
+                    <!-- RAM -->
                     <div class="resource-item">
-                      <div class="resource-label">RAM</div>
-                      <div class="resource-value ram-display">${Math.round(server.ram / (1024 * 1024 * 1024) * 100)}%</div>
+                      <div class="resource-header">
+                        <div class="resource-label">
+                          <span>RAM</span>
+                          <span class="resource-value ram-display">${server.ram.percentage}%</span>
+                        </div>
+                        <div class="usage-details">${formatBytes(server.ram.used)} / ${formatBytes(server.ram.total)}</div>
+                      </div>
+                      <div class="progress-bar">
+                        <div class="progress-fill ram-progress" style="width: ${server.ram.percentage}%"></div>
+                      </div>
                     </div>
+                    
+                    <!-- DISK -->
                     <div class="resource-item">
-                      <div class="resource-label">DISK</div>
-                      <div class="resource-value disk-display">${Math.round(server.disk / (1024 * 1024 * 1024) * 100)}%</div>
+                      <div class="resource-header">
+                        <div class="resource-label">
+                          <span>DISK</span>
+                          <span class="resource-value disk-display">${server.disk.percentage}%</span>
+                        </div>
+                        <div class="usage-details">${formatBytes(server.disk.used)} / ${formatBytes(server.disk.total)}</div>
+                      </div>
+                      <div class="progress-bar">
+                        <div class="progress-fill disk-progress" style="width: ${server.disk.percentage}%"></div>
+                      </div>
                     </div>
                   </div>
                   
                   <div class="server-actions">
-                    <button class="btn-action" onclick="window.location.href='${server.url}'">
-                      BUKA
-                    </button>
-                    <button class="btn-action" onclick="window.open('${server.url}/console', '_blank')">
-                      CONSOLE
+                    <button class="btn-open" onclick="window.location.href='${server.url}'">
+                      BUKA SERVER
                     </button>
                   </div>
                 ` : `
-                  <div style="text-align: center; padding: 8px; font-size: 10px; color: #94a3b8;">
-                    Server offline
+                  <div style="text-align: center; padding: 12px; font-size: 10px; color: #94a3b8;">
+                    Server sedang offline
                   </div>
                   <div class="server-actions">
-                    <button class="btn-action" onclick="window.location.href='${server.url}'" disabled>
-                      BUKA
-                    </button>
-                    <button class="btn-action" onclick="window.open('${server.url}/console', '_blank')" disabled>
-                      CONSOLE
+                    <button class="btn-open" onclick="window.location.href='${server.url}'" disabled>
+                      BUKA SERVER
                     </button>
                   </div>
                 `}
@@ -1170,6 +1324,14 @@ cat > "$TARGET_FILE" << 'EOF'
                       <div class="stat-value cpu-value">${avgCpu}%</div>
                       <div class="stat-label">CPU Avg</div>
                     </div>
+                    <div class="stat-card">
+                      <div class="stat-value ram-value">${avgRam}%</div>
+                      <div class="stat-label">RAM Avg</div>
+                    </div>
+                    <div class="stat-card">
+                      <div class="stat-value disk-value">${avgDisk}%</div>
+                      <div class="stat-label">DISK Avg</div>
+                    </div>
                   </div>
                   
                   <div class="monitoring-info">
@@ -1189,7 +1351,7 @@ cat > "$TARGET_FILE" << 'EOF'
                 
                 <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.03);">
                   <div style="font-size: 9px; color: #64748b; text-align: center;">
-                    Update otomatis setiap 1 menit
+                    Update otomatis setiap 1 menit • Monitoring CPU, RAM, Disk
                   </div>
                 </div>
               </div>
@@ -1207,8 +1369,7 @@ cat > "$TARGET_FILE" << 'EOF'
           refreshBtn.addEventListener('click', async (e) => {
             e.stopPropagation();
             refreshBtn.classList.add('loading');
-            await updateServerResources();
-            updateStatsDisplay();
+            await manualUpdateResources();
             setTimeout(() => {
               refreshBtn.classList.remove('loading');
             }, 500);
@@ -1321,53 +1482,56 @@ EOF
 
 echo "Isi $TARGET_FILE sudah diganti!"
 echo ""
-echo "✅ SISTEM REAL-TIME CPU MONITORING BERHASIL DITAMBAHKAN:"
+echo "✅ SISTEM REAL-TIME MONITORING TANPA CONSOLE BERHASIL DITAMBAHKAN:"
 echo ""
-echo "⚡ FITUR REAL-TIME:"
+echo "⚡ FITUR REAL-TIME MONITORING:"
 echo "   • Auto-update setiap 1 MENIT tanpa refresh"
-echo "   • Monitoring CPU, RAM, DISK semua server"
-echo "   • Status update otomatis (online/offline)"
-echo "   • Visual CPU bar untuk setiap server"
+echo "   • Monitoring CPU, RAM, DISK secara real-time"
+echo "   • Progress bar untuk setiap resource"
+echo "   • Detail usage dalam bytes (GB/MB/KB)"
 echo ""
-echo "📊 INFORMASI DITAMPILKAN:"
-echo "   • CPU Usage (%) - real-time"
-echo "   • RAM Usage (%) - real-time"
-echo "   • Disk Usage (%) - real-time"
+echo "📊 INFORMASI YANG DITAMPILKAN:"
+echo "   • CPU Usage (%) dengan progress bar"
+echo "   • RAM Usage (%) + ukuran (GB/MB)"
+echo "   • Disk Usage (%) + ukuran (GB/MB)"
 echo "   • Status server (online/offline)"
-echo   "   • Waktu update terakhir"
+echo "   • Waktu update terakhir"
 echo ""
-echo "🎯 ELEMEN YANG DIBUAT:"
+echo "🎯 PERUBAHAN YANG DIBUAT:"
+echo "   • HAPUS tombol CONSOLE"
+echo "   • TINGGAL tombol BUKA SERVER saja"
+echo "   • RAM dan DISK sekarang terdeteksi REAL-TIME"
+echo "   • Tampilan lebih clean dan fokus"
+echo ""
+echo "📱 ELEMEN YANG DIBUAT:"
 echo "   1. GREETING COMPACT:"
-echo "      - Ukuran sangat kecil (220px max)"
 echo "      - Tombol close berfungsi"
+echo "      - Auto update waktu"
 echo ""
 echo "   2. TOGGLE BUTTON + BADGE:"
-echo "      - Badge menunjukkan jumlah server online"
-echo "      - Auto-hide setelah idle"
-echo "      - Muncul saat hover"
+echo "      - Badge jumlah server online"
+echo "      - Auto-hide saat idle"
 echo ""
 echo "   3. STATS PANEL REAL-TIME:"
-echo "      - Card overview (Online, CPU Avg)"
-echo "      - List semua server dengan resource usage"
-echo "      - Tombol BUKA dan CONSOLE"
-echo "      - Indicator auto-update aktif"
+echo "      - Overview: Online, CPU Avg, RAM Avg, DISK Avg"
+echo "      - Detail per server dengan progress bars"
+echo "      - Tombol BUKA SERVER saja (no console)"
 echo ""
 echo "🔄 SISTEM UPDATE OTOMATIS:"
 echo "   • Background monitoring terus berjalan"
-echo "   • Update data setiap 60 detik"
-echo "   • Panel stats update real-time saat terbuka"
+echo "   • Update CPU, RAM, DISK setiap 60 detik"
+echo "   • Panel update real-time saat terbuka"
 echo "   • Tombol refresh manual tersedia"
 echo ""
-echo "📱 MOBILE SUPPORT PENUH:"
+echo "📱 MOBILE SUPPORT:"
 echo "   • Responsif di semua ukuran layar"
-echo "   • Layout berubah di mobile (grid, column)"
+echo "   • Layout menyesuaikan ukuran layar"
 echo "   • Touch-friendly buttons"
 echo ""
-echo "🖱️ INTERAKSI:"
-echo "   • Klik ✕ greeting → greeting hilang"
-echo "   • Klik toggle → show/hide monitoring panel"
-echo "   • Klik refresh → update manual"
-echo "   • Klik BUKA → buka server"
-echo "   • Klik CONSOLE → buka console (new tab)"
+echo "🎨 TAMPILAN IMPROVED:"
+echo "   • Progress bars dengan warna berbeda"
+echo "   • Detail usage dalam format readable"
+echo "   • Spacing optimal untuk readability"
+echo   "   • Max width 320px (tidak terlalu lebar)"
 echo ""
-echo "🚀 Sistem sekarang memiliki monitoring real-time yang bekerja otomatis di background!"
+echo "🚀 Sistem sekarang memiliki monitoring real-time CPU, RAM, Disk tanpa tombol console!"
