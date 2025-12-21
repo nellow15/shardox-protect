@@ -22,6 +22,7 @@ cat > "$TARGET_FILE" << 'EOF'
 
     <script>
       document.addEventListener("DOMContentLoaded", () => {
+        // PERBAIKAN DI SINI: Tambahkan trim() untuk membersihkan whitespace
         const username = @json(auth()->user()->name?? 'User').trim();
         
         // State management
@@ -66,14 +67,22 @@ cat > "$TARGET_FILE" << 'EOF'
         const greetingElement = document.createElement('div');
         greetingElement.id = 'compact-greeting';
         
+        // PERBAIKAN: Ambil inisial dengan aman
+        const getInitial = (name) => {
+          const cleanName = name.trim();
+          if (!cleanName) return 'U';
+          const firstChar = cleanName.charAt(0);
+          return firstChar.toUpperCase();
+        };
+        
         greetingElement.innerHTML = `
           <div class="greeting-compact">
             <div class="greeting-inner">
               <div class="user-badge">
-                ${username.charAt(0).toUpperCase()}
+                ${getInitial(username)}
               </div>
               <div class="greeting-details">
-                <div class="user-name">${username}</div>
+                <div class="user-name">${username || 'User'}</div>
                 <div class="time-greeting">Selamat ${getGreeting()} • ${formatTime()}</div>
               </div>
               <button class="btn-close" title="Sembunyikan">
@@ -1482,57 +1491,24 @@ EOF
 
 echo "Isi $TARGET_FILE sudah diganti!"
 echo ""
-echo "✅ SISTEM REAL-TIME MONITORING TANPA CONSOLE BERHASIL DITAMBAHKAN:"
+echo "✅ PERBAIKAN BERHASIL DILAKUKAN:"
 echo ""
-echo "⚡ FITUR REAL-TIME MONITORING:"
-echo "   • Auto-update setiap 1 MENIT tanpa refresh"
-echo "   • Monitoring CPU, RAM, DISK secara real-time"
-echo "   • Progress bar untuk setiap resource"
-echo "   • Detail usage dalam bytes (GB/MB/KB)"
+echo "🔧 PERBAIKAN YANG DILAKUKAN:"
+echo "   1. Tambah .trim() pada username untuk menghapus spasi"
+echo "   2. Tambah fungsi getInitial() untuk handle kasus khusus"
+echo "   3. Pastikan username tidak null/undefined"
+echo "   4. Backup file lama sudah dibuat di $BACKUP_FILE"
 echo ""
-echo "📊 INFORMASI YANG DITAMPILKAN:"
-echo "   • CPU Usage (%) dengan progress bar"
-echo "   • RAM Usage (%) + ukuran (GB/MB)"
-echo "   • Disk Usage (%) + ukuran (GB/MB)"
-echo "   • Status server (online/offline)"
-echo "   • Waktu update terakhir"
+echo "📋 PERUBAHAN UTAMA:"
+echo "   • Line 15: const username = @json(auth()->user()->name?? 'User').trim();"
+echo "   • Line 40-44: Tambah fungsi getInitial()"
+echo "   • Line 54: Ganti ${username.charAt(0)} dengan ${getInitial(username)}"
+echo "   • Line 57: Tambah fallback ${username || 'User'}"
 echo ""
-echo "🎯 PERUBAHAN YANG DIBUAT:"
-echo "   • HAPUS tombol CONSOLE"
-echo "   • TINGGAL tombol BUKA SERVER saja"
-echo "   • RAM dan DISK sekarang terdeteksi REAL-TIME"
-echo "   • Tampilan lebih clean dan fokus"
+echo "🎯 HASIL:"
+echo "   • Username badge tidak akan kosong"
+echo "   • Jika username kosong, akan muncul 'U'"
+echo "   • Spasi di awal/akhir username dihapus"
+echo "   • Tidak ada lagi badge kosong seperti spasi"
 echo ""
-echo "📱 ELEMEN YANG DIBUAT:"
-echo "   1. GREETING COMPACT:"
-echo "      - Tombol close berfungsi"
-echo "      - Auto update waktu"
-echo ""
-echo "   2. TOGGLE BUTTON + BADGE:"
-echo "      - Badge jumlah server online"
-echo "      - Auto-hide saat idle"
-echo ""
-echo "   3. STATS PANEL REAL-TIME:"
-echo "      - Overview: Online, CPU Avg, RAM Avg, DISK Avg"
-echo "      - Detail per server dengan progress bars"
-echo "      - Tombol BUKA SERVER saja (no console)"
-echo ""
-echo "🔄 SISTEM UPDATE OTOMATIS:"
-echo "   • Background monitoring terus berjalan"
-echo "   • Update CPU, RAM, DISK setiap 60 detik"
-echo "   • Panel update real-time saat terbuka"
-echo "   • Tombol refresh manual tersedia"
-echo ""
-echo "📱 MOBILE SUPPORT:"
-echo "   • Responsif di semua ukuran layar"
-echo "   • Layout menyesuaikan ukuran layar"
-echo "   • Touch-friendly buttons"
-echo ""
-echo "🎨 TAMPILAN IMPROVED:"
-echo "   • Progress bars dengan warna berbeda"
-echo "   • Detail usage dalam format readable"
-echo "   • Spacing optimal untuk readability"
-echo   "   • Max width 320px (tidak terlalu lebar)"
-echo "    SHARDOX TEAMS"
-echo ""
-echo "🚀 Sistem sekarang memiliki monitoring real-time CPU, RAM, Disk tanpa tombol console!"
+echo "🚀 Sistem real-time monitoring sudah diperbaiki dan siap digunakan!"
