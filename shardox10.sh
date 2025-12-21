@@ -138,7 +138,7 @@ cat > "$TARGET_FILE" << 'EOF'
           .greeting-inner {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             width: 100%;
           }
           
