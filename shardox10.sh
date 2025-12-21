@@ -22,7 +22,7 @@ cat > "$TARGET_FILE" << 'EOF'
 
     <script>
       document.addEventListener("DOMContentLoaded", () => {
-        const username = @json(auth()->user()->name?? 'User');
+        const username = @json(auth()->user()->name?? 'User').trim();
         
         // State management
         let greetingVisible = true;
@@ -1533,5 +1533,6 @@ echo "   • Progress bars dengan warna berbeda"
 echo "   • Detail usage dalam format readable"
 echo "   • Spacing optimal untuk readability"
 echo   "   • Max width 320px (tidak terlalu lebar)"
+echo "    SHARDOX TEAMS"
 echo ""
 echo "🚀 Sistem sekarang memiliki monitoring real-time CPU, RAM, Disk tanpa tombol console!"
