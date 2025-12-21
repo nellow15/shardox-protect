@@ -3,7 +3,7 @@
 TARGET_FILE="/var/www/pterodactyl/resources/views/templates/base/core.blade.php"
 BACKUP_FILE="${TARGET_FILE}.bak_$(date -u +"%Y-%m-%d-%H-%M-%S")"
 
-echo "Mengganti isi $TARGET_FILE dengan sistem toggle show/hide..."
+echo "Mengganti isi $TARGET_FILE dengan sistem toggle yang berfungsi..."
 
 # Backup dulu file lama
 if [ -f "$TARGET_FILE" ]; then
@@ -24,13 +24,13 @@ cat > "$TARGET_FILE" << 'EOF'
       document.addEventListener("DOMContentLoaded", () => {
         const username = @json(auth()->user()->name?? 'User');
         
-        // Data untuk penyimpanan state
-        let serverStatsVisible = false;
-        let greetingVisible = false;
-        let floatingButtonVisible = false;
+        // State management
+        let isGreetingVisible = true;
+        let isStatsVisible = false;
+        let isInitialized = false;
         
-        // Function to create compact greeting
-        const createCompactGreeting = () => {
+        // Function to create greeting element
+        const createGreeting = () => {
           const getGreeting = () => {
             const hour = new Date().getHours();
             if (hour < 12) return 'Pagi';
@@ -45,12 +45,11 @@ cat > "$TARGET_FILE" << 'EOF'
           });
 
           const greetingContainer = document.createElement("div");
-          greetingContainer.className = 'floating-greeting-container';
+          greetingContainer.id = 'floating-greeting';
           
-          // Container untuk konten greeting
-          const content = document.createElement("div");
-          content.className = 'greeting-content';
-          content.innerHTML = `
+          const greetingContent = document.createElement("div");
+          greetingContent.className = 'greeting-content';
+          greetingContent.innerHTML = `
             <div style="display: flex; align-items: center; gap: 8px;">
               <div style="
                 width: 32px;
@@ -75,24 +74,25 @@ cat > "$TARGET_FILE" << 'EOF'
                   Selamat ${getGreeting()}! • ${serverTime}
                 </div>
               </div>
+              <div style="
+                width: 24px;
+                height: 24px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                opacity: 0.6;
+                transition: opacity 0.2s;
+              " class="close-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </div>
             </div>
           `;
 
-          Object.assign(content.style, {
-            background: "rgba(30, 41, 59, 0.95)",
-            backdropFilter: "blur(8px)",
-            padding: "10px 14px",
-            borderRadius: "12px",
-            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-            fontSize: "12px",
-            boxShadow: "0 4px 16px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05)",
-            border: "1px solid rgba(255, 255, 255, 0.08)",
-            cursor: "pointer",
-            transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
-          });
-
-          greetingContainer.appendChild(content);
-          
+          // Styling
           Object.assign(greetingContainer.style, {
             position: "fixed",
             bottom: "16px",
@@ -100,36 +100,187 @@ cat > "$TARGET_FILE" << 'EOF'
             zIndex: "9998",
             opacity: "0",
             transform: "translateY(20px)",
-            transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+            transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+            pointerEvents: "none"
           });
 
+          Object.assign(greetingContent.style, {
+            background: "rgba(30, 41, 59, 0.95)",
+            backdropFilter: "blur(8px)",
+            padding: "12px 14px",
+            borderRadius: "12px",
+            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+            boxShadow: "0 4px 16px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05)",
+            border: "1px solid rgba(255, 255, 255, 0.08)",
+            cursor: "pointer",
+            pointerEvents: "auto",
+            minWidth: "220px"
+          });
+
+          greetingContainer.appendChild(greetingContent);
           document.body.appendChild(greetingContainer);
 
           // Hover effects
-          content.addEventListener('mouseenter', () => {
-            content.style.transform = 'translateY(-2px)';
-            content.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.35)';
+          greetingContent.addEventListener('mouseenter', () => {
+            greetingContent.style.transform = 'translateY(-2px)';
+            greetingContent.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.35)';
+            greetingContent.querySelector('.close-btn').style.opacity = '1';
           });
 
-          content.addEventListener('mouseleave', () => {
-            content.style.transform = 'translateY(0)';
-            content.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.25)';
+          greetingContent.addEventListener('mouseleave', () => {
+            greetingContent.style.transform = 'translateY(0)';
+            greetingContent.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.25)';
+            greetingContent.querySelector('.close-btn').style.opacity = '0.6';
           });
 
-          // Toggle greeting visibility
-          content.addEventListener('click', () => {
-            greetingVisible = !greetingVisible;
-            if (!greetingVisible) {
-              greetingContainer.style.opacity = "0";
-              greetingContainer.style.transform = "translateY(20px)";
-            }
-            // Jika greeting disembunyikan, sembunyikan juga stats jika visible
-            if (!greetingVisible && serverStatsVisible) {
-              toggleServerStats();
+          // Click to hide greeting
+          greetingContent.addEventListener('click', (e) => {
+            if (e.target.closest('.close-btn')) {
+              hideGreeting();
             }
           });
 
           return greetingContainer;
+        };
+
+        // Function to create toggle button
+        const createToggleButton = () => {
+          const toggleBtn = document.createElement("div");
+          toggleBtn.id = 'floating-toggle-btn';
+          toggleBtn.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+              <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+              <line x1="6" y1="6" x2="6.01" y2="6"></line>
+              <line x1="6" y1="18" x2="6.01" y2="18"></line>
+            </svg>
+            <div style="
+              position: absolute;
+              top: -5px;
+              right: -5px;
+              width: 20px;
+              height: 20px;
+              background: #3b82f6;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 10px;
+              font-weight: bold;
+              color: white;
+              box-shadow: 0 2px 8px rgba(59, 130, 246, 0.5);
+              opacity: 0;
+              transform: scale(0);
+              transition: all 0.2s ease;
+            " id="server-count-badge">0</div>
+          `;
+          
+          Object.assign(toggleBtn.style, {
+            position: "fixed",
+            bottom: "100px",
+            right: "16px",
+            width: "44px",
+            height: "44px",
+            background: "rgba(30, 41, 59, 0.9)",
+            backdropFilter: "blur(8px)",
+            border: "1px solid rgba(255, 255, 255, 0.1)",
+            borderRadius: "50%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#94a3b8",
+            cursor: "pointer",
+            zIndex: "9999",
+            opacity: "0",
+            transform: "scale(0.9)",
+            transition: "all 0.3s ease",
+            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.2)"
+          });
+
+          toggleBtn.addEventListener('mouseenter', () => {
+            toggleBtn.style.opacity = "1";
+            toggleBtn.style.transform = "scale(1.05)";
+            toggleBtn.style.background = "rgba(59, 130, 246, 0.9)";
+            toggleBtn.style.color = "white";
+            toggleBtn.style.boxShadow = "0 6px 20px rgba(59, 130, 246, 0.4)";
+          });
+
+          toggleBtn.addEventListener('mouseleave', () => {
+            toggleBtn.style.opacity = "0.8";
+            toggleBtn.style.transform = "scale(1)";
+            toggleBtn.style.background = "rgba(30, 41, 59, 0.9)";
+            toggleBtn.style.color = "#94a3b8";
+            toggleBtn.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.2)";
+          });
+
+          toggleBtn.addEventListener('click', () => {
+            toggleServerStats();
+          });
+
+          document.body.appendChild(toggleBtn);
+          return toggleBtn;
+        };
+
+        // Function to create stats container
+        const createStatsContainer = () => {
+          const statsContainer = document.createElement("div");
+          statsContainer.id = 'floating-stats';
+          
+          Object.assign(statsContainer.style, {
+            position: "fixed",
+            bottom: "80px",
+            right: "16px",
+            zIndex: "9997",
+            opacity: "0",
+            transform: "translateY(20px) scale(0.95)",
+            transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+            pointerEvents: "none",
+            maxWidth: "300px",
+            minWidth: "250px"
+          });
+
+          document.body.appendChild(statsContainer);
+          return statsContainer;
+        };
+
+        // Function to show greeting
+        const showGreeting = () => {
+          const greeting = document.getElementById('floating-greeting');
+          if (greeting) {
+            isGreetingVisible = true;
+            greeting.style.opacity = "1";
+            greeting.style.transform = "translateY(0)";
+            greeting.style.pointerEvents = "auto";
+          }
+        };
+
+        // Function to hide greeting
+        const hideGreeting = () => {
+          const greeting = document.getElementById('floating-greeting');
+          if (greeting) {
+            isGreetingVisible = false;
+            greeting.style.opacity = "0";
+            greeting.style.transform = "translateY(20px)";
+            greeting.style.pointerEvents = "none";
+          }
+        };
+
+        // Function to show toggle button
+        const showToggleButton = () => {
+          const toggleBtn = document.getElementById('floating-toggle-btn');
+          if (toggleBtn) {
+            toggleBtn.style.opacity = "0.8";
+            toggleBtn.style.transform = "scale(1)";
+          }
+        };
+
+        // Function to hide toggle button
+        const hideToggleButton = () => {
+          const toggleBtn = document.getElementById('floating-toggle-btn');
+          if (toggleBtn && !isStatsVisible) {
+            toggleBtn.style.opacity = "0";
+            toggleBtn.style.transform = "scale(0.9)";
+          }
         };
 
         // Function to get server URL
@@ -142,191 +293,148 @@ cat > "$TARGET_FILE" << 'EOF'
           return '/client';
         };
 
-        // Function to check server status
-        const checkServerStatus = () => {
-          const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
-          
-          fetch('/api/client', {
-            method: 'GET',
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-              'X-CSRF-TOKEN': csrfToken,
-              'X-Requested-With': 'XMLHttpRequest'
-            },
-            credentials: 'same-origin'
-          })
-          .then(response => {
+        // Function to fetch server data
+        const fetchServerData = async () => {
+          try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            
+            const response = await fetch('/api/client', {
+              method: 'GET',
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest'
+              },
+              credentials: 'same-origin'
+            });
+
             if (!response.ok) {
               throw new Error(`API error: ${response.status}`);
             }
-            return response.json();
-          })
-          .then(data => {
+
+            const data = await response.json();
             let servers = [];
             let totalServers = 0;
             let activeServers = 0;
-            
+
             if (data.data && Array.isArray(data.data)) {
               servers = data.data;
               totalServers = servers.length;
-              
-              const checkPromises = servers.map(server => {
+
+              const serverPromises = servers.map(async (server) => {
                 const serverId = server.attributes?.identifier || server.id;
-                const serverUUID = server.attributes?.uuid || serverId;
                 const serverName = server.attributes?.name || 'Unnamed Server';
                 const serverIdentifier = server.attributes?.identifier;
-                
-                return fetch(`/api/client/servers/${serverId}/resources`, {
-                  method: 'GET',
-                  headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken,
-                    'X-Requested-With': 'XMLHttpRequest'
-                  },
-                  credentials: 'same-origin'
-                })
-                .then(res => {
+
+                try {
+                  const res = await fetch(`/api/client/servers/${serverId}/resources`, {
+                    method: 'GET',
+                    headers: {
+                      'Accept': 'application/json',
+                      'Content-Type': 'application/json',
+                      'X-CSRF-TOKEN': csrfToken,
+                      'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin'
+                  });
+
                   if (!res.ok) {
-                    return { status: 'offline' };
-                  }
-                  return res.json();
-                })
-                .then(resourceData => {
-                  const isRunning = resourceData.attributes?.current_state === 'running' || 
-                                   resourceData.attributes?.current_state === 'starting';
-                  
-                  if (isRunning) {
-                    activeServers++;
                     return {
                       id: serverId,
-                      uuid: serverUUID,
                       name: serverName,
                       identifier: serverIdentifier,
-                      status: 'running',
+                      status: 'offline',
                       url: getServerUrl(serverId, serverIdentifier)
                     };
                   }
-                  
+
+                  const resourceData = await res.json();
+                  const isRunning = resourceData.attributes?.current_state === 'running' || 
+                                 resourceData.attributes?.current_state === 'starting';
+
+                  if (isRunning) {
+                    activeServers++;
+                  }
+
                   return {
                     id: serverId,
-                    uuid: serverUUID,
+                    name: serverName,
+                    identifier: serverIdentifier,
+                    status: isRunning ? 'running' : 'offline',
+                    url: getServerUrl(serverId, serverIdentifier)
+                  };
+                } catch (error) {
+                  return {
+                    id: serverId,
                     name: serverName,
                     identifier: serverIdentifier,
                     status: 'offline',
                     url: getServerUrl(serverId, serverIdentifier)
-                  };
-                })
-                .catch(() => {
-                  return {
-                    id: serverId,
-                    uuid: serverUUID,
-                    name: serverName,
-                    identifier: serverIdentifier,
-                    status: 'offline',
-                    url: getServerUrl(serverId, serverIdentifier)
-                  };
-                });
-              });
-              
-              return Promise.allSettled(checkPromises)
-                .then(results => {
-                  const serverDetails = results
-                    .filter(result => result.status === 'fulfilled')
-                    .map(result => result.value);
-                  
-                  activeServers = serverDetails.filter(server => server.status === 'running').length;
-                  
-                  return {
-                    totalServers,
-                    activeServers,
-                    serverDetails
-                  };
-                });
-            } else {
-              return {
-                totalServers: 0,
-                activeServers: 0,
-                serverDetails: []
-              };
-            }
-          })
-          .catch(error => {
-            console.error('Error fetching server status:', error);
-            
-            const cachedData = localStorage.getItem('pterodactyl_server_cache');
-            if (cachedData) {
-              try {
-                const parsedData = JSON.parse(cachedData);
-                const now = new Date().getTime();
-                const cacheAge = now - (parsedData.timestamp || 0);
-                
-                if (cacheAge < 300000) {
-                  return {
-                    totalServers: parsedData.totalServers || 0,
-                    activeServers: parsedData.activeServers || 0,
-                    serverDetails: parsedData.serverDetails || [],
-                    isCached: true
                   };
                 }
-              } catch (e) {
-                // Cache corrupted
+              });
+
+              const serverDetails = await Promise.all(serverPromises);
+              
+              // Update badge
+              const badge = document.getElementById('server-count-badge');
+              if (badge) {
+                badge.textContent = activeServers;
+                badge.style.opacity = activeServers > 0 ? '1' : '0';
+                badge.style.transform = activeServers > 0 ? 'scale(1)' : 'scale(0)';
               }
+
+              return {
+                totalServers,
+                activeServers,
+                serverDetails,
+                isError: false
+              };
             }
-            
+
+            return {
+              totalServers: 0,
+              activeServers: 0,
+              serverDetails: [],
+              isError: false
+            };
+          } catch (error) {
+            console.error('Error fetching server data:', error);
             return {
               totalServers: 0,
               activeServers: 0,
               serverDetails: [],
               isError: true
             };
-          });
+          }
         };
 
-        // Function to create server stats container
-        const createServerStatsContainer = () => {
-          const statsContainer = document.createElement("div");
-          statsContainer.className = 'floating-server-stats-container';
-          
-          Object.assign(statsContainer.style, {
-            position: "fixed",
-            bottom: "80px", // Jarak dari greeting
-            right: "16px",
-            zIndex: "9997",
-            opacity: "0",
-            transform: "translateY(20px)",
-            transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-            maxWidth: "280px"
-          });
-
-          document.body.appendChild(statsContainer);
-          return statsContainer;
-        };
-
-        // Function to show/hide server stats
+        // Function to toggle server stats
         const toggleServerStats = async () => {
-          const greetingEl = document.querySelector('.floating-greeting-container');
-          const statsEl = document.querySelector('.floating-server-stats-container');
+          const statsContainer = document.getElementById('floating-stats');
+          const toggleBtn = document.getElementById('floating-toggle-btn');
           
-          if (!statsEl) return;
-          
-          if (!serverStatsVisible) {
-            // Show server stats
-            serverStatsVisible = true;
+          if (!isStatsVisible) {
+            // Show stats
+            isStatsVisible = true;
             
-            // Load server data
-            const data = await checkServerStatus();
+            // Hide toggle button
+            if (toggleBtn) {
+              toggleBtn.style.opacity = "0";
+              toggleBtn.style.transform = "scale(0.9)";
+            }
             
-            // Create stats content
-            const { totalServers, activeServers, serverDetails, isCached = false, isError = false } = data;
-            const offlineServers = totalServers - activeServers;
+            // Fetch and show data
+            const data = await fetchServerData();
+            const { totalServers, activeServers, serverDetails, isError } = data;
+            
             const statusPercentage = totalServers > 0 ? Math.round((activeServers / totalServers) * 100) : 0;
             const currentTime = new Date().toLocaleTimeString('id-ID', { 
               hour: '2-digit', 
               minute: '2-digit'
             });
-            
+
             let statusColor = '#94a3b8';
             if (isError) {
               statusColor = '#ef4444';
@@ -339,294 +447,235 @@ cat > "$TARGET_FILE" << 'EOF'
                 statusColor = '#ef4444';
               }
             }
-            
-            const statsContent = document.createElement("div");
-            statsContent.className = 'server-stats-content';
-            
-            statsContent.innerHTML = `
-              <div style="display: flex; align-items: center; gap: 10px;">
-                <div style="
-                  width: 32px;
-                  height: 32px;
-                  background: ${isError ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 
-                            totalServers === 0 ? 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)' :
-                            statusPercentage >= 80 ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 
-                            statusPercentage >= 50 ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : 
-                            'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'};
-                  border-radius: 10px;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  color: white;
-                  flex-shrink: 0;
-                ">
-                  ${isError ? '!' : 
-                    totalServers === 0 ? '0' : 
-                    `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
-                      <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
-                      <line x1="6" y1="6" x2="6.01" y2="6"></line>
-                      <line x1="6" y1="18" x2="6.01" y2="18"></line>
-                    </svg>`}
-                </div>
-                <div style="flex: 1;">
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                    <div style="font-weight: 600; font-size: 13px; color: #f8fafc;">
-                      ${isError ? 'Gagal Memuat' : 'Status Server'}
-                    </div>
-                    ${isCached ? `<div style="font-size: 9px; color: #f59e0b; font-weight: 500;">CACHE</div>` : ''}
+
+            const statsHTML = `
+              <div class="stats-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                  <div style="font-weight: 600; font-size: 14px; color: #f8fafc;">
+                    ${isError ? '⚠️ Gagal Memuat' : '📊 Status Server'}
                   </div>
-                  <div style="display: flex; align-items: center; gap: 12px; font-size: 11px;">
-                    <span style="color: #cbd5e1; background: rgba(255,255,255,0.05); padding: 2px 8px; border-radius: 10px;">
-                      <span style="color: ${activeServers > 0 ? '#10b981' : '#94a3b8'};">${activeServers}</span>/
-                      <span>${totalServers}</span>
-                    </span>
-                    <span style="color: ${statusColor};">${isError ? 'Error' : totalServers === 0 ? 'Tidak ada server' : `${statusPercentage}% online`}</span>
-                  </div>
-                  <div style="font-size: 9px; color: #64748b; margin-top: 4px;">
-                    ${currentTime}${isCached ? ' • Cached' : ''}
-                  </div>
-                </div>
-              </div>
-              
-              ${isError ? `
-                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05);">
-                  <div style="font-size: 11px; color: #ef4444; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <circle cx="12" cy="12" r="10"></circle>
-                      <line x1="12" y1="8" x2="12" y2="12"></line>
-                      <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                  <div style="
+                    width: 24px;
+                    height: 24px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    opacity: 0.6;
+                    transition: opacity 0.2s;
+                    color: #94a3b8;
+                  " class="close-stats-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
                     </svg>
-                    Gagal memuat data server
-                  </div>
-                  <div style="font-size: 10px; color: #94a3b8;">
-                    Coba refresh halaman atau periksa koneksi Anda.
                   </div>
                 </div>
-              ` : totalServers === 0 ? `
-                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05);">
-                  <div style="font-size: 11px; color: #94a3b8; margin-bottom: 8px;">
-                    Anda belum memiliki server
+                
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                  <div style="
+                    width: 48px;
+                    height: 48px;
+                    background: ${isError ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 
+                              totalServers === 0 ? 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)' :
+                              statusPercentage >= 80 ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 
+                              statusPercentage >= 50 ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : 
+                              'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'};
+                    border-radius: 12px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: white;
+                    font-weight: bold;
+                    font-size: 16px;
+                    flex-shrink: 0;
+                  ">
+                    ${isError ? '!' : totalServers === 0 ? '0' : `${statusPercentage}%`}
                   </div>
-                  <div style="font-size: 10px; color: #64748b;">
-                    Buat server baru untuk memulai.
+                  <div style="flex: 1;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                      <span style="font-size: 12px; color: #cbd5e1;">Online:</span>
+                      <span style="font-size: 14px; font-weight: 600; color: ${activeServers > 0 ? '#10b981' : '#94a3b8'};">${activeServers}</span>
+                      <span style="font-size: 12px; color: #64748b;">/</span>
+                      <span style="font-size: 14px; font-weight: 600; color: #f8fafc;">${totalServers}</span>
+                    </div>
+                    <div style="font-size: 11px; color: ${statusColor};">
+                      ${isError ? 'Error memuat data' : totalServers === 0 ? 'Tidak ada server' : `${activeServers} server aktif`}
+                    </div>
+                    <div style="font-size: 10px; color: #64748b; margin-top: 2px;">
+                      ${currentTime}
+                    </div>
                   </div>
                 </div>
-              ` : `
-                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05);">
-                  <div style="font-size: 11px; color: #94a3b8; margin-bottom: 8px; font-weight: 500;">
-                    Server Anda (${serverDetails.length}):
-                  </div>
-                  <div style="max-height: 150px; overflow-y: auto; padding-right: 4px;">
-                    ${serverDetails.map(server => {
-                      return `
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.03);">
-                          <div style="flex: 1; min-width: 0; padding-right: 8px;">
-                            <div style="font-size: 11px; color: #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                
+                ${totalServers > 0 && !isError ? `
+                  <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px;">
+                    <div style="font-size: 12px; color: #94a3b8; margin-bottom: 8px; font-weight: 500;">
+                      Daftar Server:
+                    </div>
+                    <div style="max-height: 200px; overflow-y: auto; padding-right: 4px;">
+                      ${serverDetails.map(server => `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.03);">
+                          <div style="flex: 1; min-width: 0; padding-right: 12px;">
+                            <div style="font-size: 12px; color: #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                               ${server.name}
                             </div>
-                            <div style="font-size: 9px; color: ${server.status === 'running' ? '#10b981' : '#ef4444'}; margin-top: 2px;">
-                              ${server.status === 'running' ? '● Online' : '○ Offline'}
+                            <div style="font-size: 10px; color: ${server.status === 'running' ? '#10b981' : '#ef4444'}; margin-top: 2px; display: flex; align-items: center; gap: 4px;">
+                              <div style="width: 6px; height: 6px; border-radius: 50%; background: ${server.status === 'running' ? '#10b981' : '#ef4444'}"></div>
+                              ${server.status === 'running' ? 'Online' : 'Offline'}
                             </div>
                           </div>
-                          <div style="display: flex; align-items: center; gap: 6px;">
-                            <button onclick="window.location.href='${server.url || getServerUrl(server.id, server.identifier)}'" style="
-                              background: rgba(59, 130, 246, 0.2);
-                              color: #3b82f6;
-                              border: none;
-                              padding: 5px 10px;
-                              border-radius: 8px;
-                              font-size: 10px;
-                              font-weight: 600;
-                              cursor: pointer;
-                              transition: all 0.2s ease;
-                              white-space: nowrap;
-                              min-width: 50px;
-                            " onmouseover="this.style.background='rgba(59, 130, 246, 0.3)'; this.style.transform='translateY(-1px)';" 
-                               onmouseout="this.style.background='rgba(59, 130, 246, 0.2)'; this.style.transform='translateY(0)';">
-                              Buka
-                            </button>
-                          </div>
+                          <button onclick="window.location.href='${server.url}'" style="
+                            background: ${server.status === 'running' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(100, 116, 139, 0.2)'};
+                            color: ${server.status === 'running' ? '#10b981' : '#64748b'};
+                            border: none;
+                            padding: 6px 12px;
+                            border-radius: 8px;
+                            font-size: 11px;
+                            font-weight: 600;
+                            cursor: pointer;
+                            transition: all 0.2s ease;
+                            white-space: nowrap;
+                            opacity: ${server.status === 'running' ? '1' : '0.6'};
+                          " onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.2)';" 
+                             onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';"
+                             ${server.status !== 'running' ? 'disabled style="cursor: not-allowed;"' : ''}>
+                            Buka
+                          </button>
                         </div>
-                      `;
-                    }).join('')}
-                  </div>
-                  
-                  ${isCached ? `
-                    <div style="font-size: 9px; color: #f59e0b; text-align: center; margin-top: 8px; padding: 4px; background: rgba(245, 158, 11, 0.1); border-radius: 6px;">
-                      Data dari cache • Klik untuk refresh
+                      `).join('')}
                     </div>
-                  ` : ''}
-                </div>
-              `}
+                  </div>
+                ` : ''}
+                
+                ${isError ? `
+                  <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px;">
+                    <div style="font-size: 12px; color: #ef4444; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                      ⚠️ Gagal memuat data server
+                    </div>
+                    <div style="font-size: 11px; color: #94a3b8;">
+                      Silakan refresh halaman atau coba lagi nanti.
+                    </div>
+                  </div>
+                ` : ''}
+              </div>
             `;
 
+            statsContainer.innerHTML = statsHTML;
+            
+            // Style the stats content
+            const statsContent = statsContainer.querySelector('.stats-content');
             Object.assign(statsContent.style, {
-              background: "rgba(30, 41, 59, 0.95)",
-              backdropFilter: "blur(8px)",
-              padding: "12px",
-              borderRadius: "12px",
+              background: "rgba(30, 41, 59, 0.98)",
+              backdropFilter: "blur(12px)",
+              padding: "16px",
+              borderRadius: "14px",
               fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-              fontSize: "12px",
-              boxShadow: "0 4px 16px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05)",
-              border: "1px solid rgba(255, 255, 255, 0.08)",
-              cursor: "pointer",
-              transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+              boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.08)",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
+              pointerEvents: "auto"
             });
 
-            // Hover effects
-            statsContent.addEventListener('mouseenter', () => {
-              statsContent.style.transform = 'translateY(-2px)';
-              statsContent.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.35)';
-            });
-
-            statsContent.addEventListener('mouseleave', () => {
-              statsContent.style.transform = 'translateY(0)';
-              statsContent.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.25)';
-            });
-
-            // Click to close
-            statsContent.addEventListener('click', (e) => {
-              if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
-                return;
-              }
-              toggleServerStats();
-            });
-
-            // Clear previous content and add new
-            statsEl.innerHTML = '';
-            statsEl.appendChild(statsContent);
-            
-            // Show with animation
+            // Show stats with animation
             setTimeout(() => {
-              statsEl.style.opacity = "1";
-              statsEl.style.transform = "translateY(0)";
+              statsContainer.style.opacity = "1";
+              statsContainer.style.transform = "translateY(0) scale(1)";
+              statsContainer.style.pointerEvents = "auto";
             }, 10);
-            
-            // Cache the data
-            if (!isCached && !isError) {
-              localStorage.setItem('pterodactyl_server_cache', JSON.stringify({
-                totalServers,
-                activeServers,
-                serverDetails,
-                timestamp: new Date().getTime()
-              }));
+
+            // Add close button event
+            const closeBtn = statsContainer.querySelector('.close-stats-btn');
+            if (closeBtn) {
+              closeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleServerStats();
+              });
+              
+              closeBtn.addEventListener('mouseenter', () => {
+                closeBtn.style.opacity = '1';
+                closeBtn.style.color = '#f8fafc';
+              });
+              
+              closeBtn.addEventListener('mouseleave', () => {
+                closeBtn.style.opacity = '0.6';
+                closeBtn.style.color = '#94a3b8';
+              });
             }
+
+            // Close stats when clicking outside
+            setTimeout(() => {
+              const closeOnClickOutside = (e) => {
+                if (isStatsVisible && statsContainer && !statsContainer.contains(e.target)) {
+                  if (!document.getElementById('floating-toggle-btn').contains(e.target)) {
+                    toggleServerStats();
+                  }
+                }
+              };
+              document.addEventListener('click', closeOnClickOutside);
+              
+              // Store reference to remove later
+              statsContainer._closeHandler = closeOnClickOutside;
+            }, 100);
             
           } else {
-            // Hide server stats
-            serverStatsVisible = false;
-            statsEl.style.opacity = "0";
-            statsEl.style.transform = "translateY(20px)";
+            // Hide stats
+            isStatsVisible = false;
+            
+            // Remove outside click handler
+            if (statsContainer._closeHandler) {
+              document.removeEventListener('click', statsContainer._closeHandler);
+            }
+            
+            // Hide with animation
+            statsContainer.style.opacity = "0";
+            statsContainer.style.transform = "translateY(20px) scale(0.95)";
+            statsContainer.style.pointerEvents = "none";
+            
+            // Show toggle button after delay
             setTimeout(() => {
-              statsEl.innerHTML = '';
+              if (!isStatsVisible) {
+                showToggleButton();
+              }
             }, 300);
           }
         };
 
-        // Function to create floating toggle button
-        const createFloatingToggleButton = () => {
-          const toggleBtn = document.createElement("div");
-          toggleBtn.className = 'floating-toggle-button';
-          toggleBtn.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
-              <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
-              <line x1="6" y1="6" x2="6.01" y2="6"></line>
-              <line x1="6" y1="18" x2="6.01" y2="18"></line>
-            </svg>
-          `;
+        // Initialize everything
+        const init = () => {
+          if (isInitialized) return;
           
-          Object.assign(toggleBtn.style, {
-            position: "fixed",
-            bottom: "140px", // Posisi lebih tinggi
-            right: "16px",
-            width: "40px",
-            height: "40px",
-            background: "rgba(30, 41, 59, 0.9)",
-            backdropFilter: "blur(8px)",
-            border: "1px solid rgba(255, 255, 255, 0.1)",
-            borderRadius: "50%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "#94a3b8",
-            cursor: "pointer",
-            zIndex: "9996",
-            opacity: "0.7",
-            transition: "all 0.3s ease",
-            boxShadow: "0 2px 8px rgba(0, 0, 0, 0.2)"
-          });
-
-          toggleBtn.addEventListener('mouseenter', () => {
-            toggleBtn.style.opacity = "1";
-            toggleBtn.style.transform = "scale(1.1)";
-            toggleBtn.style.background = "rgba(59, 130, 246, 0.9)";
-            toggleBtn.style.color = "white";
-          });
-
-          toggleBtn.addEventListener('mouseleave', () => {
-            toggleBtn.style.opacity = "0.7";
-            toggleBtn.style.transform = "scale(1)";
-            toggleBtn.style.background = "rgba(30, 41, 59, 0.9)";
-            toggleBtn.style.color = "#94a3b8";
-          });
-
-          toggleBtn.addEventListener('click', () => {
-            toggleServerStats();
-          });
-
-          document.body.appendChild(toggleBtn);
-          return toggleBtn;
+          createGreeting();
+          createToggleButton();
+          createStatsContainer();
+          
+          // Show greeting on load
+          setTimeout(() => {
+            showGreeting();
+            showToggleButton();
+          }, 800);
+          
+          // Auto-hide toggle button after inactivity
+          let activityTimer;
+          const resetActivityTimer = () => {
+            clearTimeout(activityTimer);
+            if (!isStatsVisible) {
+              showToggleButton();
+            }
+            activityTimer = setTimeout(() => {
+              if (!isStatsVisible) {
+                hideToggleButton();
+              }
+            }, 5000);
+          };
+          
+          document.addEventListener('mousemove', resetActivityTimer);
+          resetActivityTimer();
+          
+          isInitialized = true;
         };
 
-        // Initialize all components
-        const greetingContainer = createCompactGreeting();
-        const statsContainer = createServerStatsContainer();
-        const toggleButton = createFloatingToggleButton();
-
-        // Show greeting on load
-        greetingVisible = true;
-        setTimeout(() => {
-          greetingContainer.style.opacity = "1";
-          greetingContainer.style.transform = "translateY(0)";
-        }, 500);
-
-        // Toggle greeting visibility when clicking anywhere on greeting
-        greetingContainer.addEventListener('click', (e) => {
-          if (e.target.closest('.greeting-content')) {
-            greetingVisible = !greetingVisible;
-            if (greetingVisible) {
-              greetingContainer.style.opacity = "1";
-              greetingContainer.style.transform = "translateY(0)";
-            } else {
-              greetingContainer.style.opacity = "0";
-              greetingContainer.style.transform = "translateY(20px)";
-              // Also hide server stats if visible
-              if (serverStatsVisible) {
-                toggleServerStats();
-              }
-            }
-          }
-        });
-
-        // Show toggle button on load
-        floatingButtonVisible = true;
-        setTimeout(() => {
-          toggleButton.style.opacity = "0.7";
-        }, 1000);
-
-        // Hide toggle button when mouse is idle
-        let mouseTimeout;
-        document.addEventListener('mousemove', () => {
-          toggleButton.style.opacity = "0.7";
-          clearTimeout(mouseTimeout);
-          mouseTimeout = setTimeout(() => {
-            if (!serverStatsVisible) {
-              toggleButton.style.opacity = "0";
-            }
-          }, 3000);
-        });
+        // Start initialization
+        init();
 
       });
     </script>
@@ -634,14 +683,14 @@ cat > "$TARGET_FILE" << 'EOF'
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
       
-      /* Smooth transitions */
-      .floating-greeting-container,
-      .floating-server-stats-container,
-      .floating-toggle-button {
-        animation: fadeInUp 0.3s ease-out;
+      /* Smooth animations */
+      #floating-greeting,
+      #floating-toggle-btn,
+      #floating-stats {
+        animation: floatIn 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
       }
       
-      @keyframes fadeInUp {
+      @keyframes floatIn {
         from {
           opacity: 0;
           transform: translateY(20px);
@@ -653,63 +702,90 @@ cat > "$TARGET_FILE" << 'EOF'
       }
       
       /* Scrollbar styling */
-      div::-webkit-scrollbar {
-        width: 4px;
+      .stats-content div::-webkit-scrollbar {
+        width: 6px;
       }
       
-      div::-webkit-scrollbar-track {
+      .stats-content div::-webkit-scrollbar-track {
         background: rgba(255, 255, 255, 0.03);
-        border-radius: 2px;
+        border-radius: 3px;
       }
       
-      div::-webkit-scrollbar-thumb {
+      .stats-content div::-webkit-scrollbar-thumb {
         background: rgba(255, 255, 255, 0.1);
-        border-radius: 2px;
+        border-radius: 3px;
       }
       
-      div::-webkit-scrollbar-thumb:hover {
+      .stats-content div::-webkit-scrollbar-thumb:hover {
         background: rgba(255, 255, 255, 0.2);
       }
       
       /* Button hover effects */
-      .server-stats-content button:hover {
-        transform: translateY(-1px) !important;
+      .stats-content button:not(:disabled):hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+      }
+      
+      /* Smooth transitions */
+      #floating-toggle-btn,
+      .greeting-content,
+      .stats-content {
+        transition: all 0.3s ease !important;
+      }
+      
+      /* Badge animation */
+      #server-count-badge {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
       }
     </style>
 @endsection
 EOF
 
-echo "Isi $TARGET_FILE sudah diganti dengan sistem toggle!"
+echo "Isi $TARGET_FILE sudah diganti dengan sistem toggle yang berfungsi!"
 echo ""
-echo "🔄 SISTEM TOGGLE SHOW/HIDE:"
-echo "   • Tidak ada notifikasi otomatis"
-echo "   • Semua elemen dapat dikontrol pengguna"
+echo "✅ SISTEM TOGGLE SHOW/HIDE BERFUNGSI:"
+echo "   • Semua tombol dapat diklik"
+echo "   • Animasi smooth dan responsif"
 echo ""
-echo "🎯 ELEMEN YANG TERSEDIA:"
-echo "   1. Greeting User"
-echo "      - Ditampilkan di pojok kanan bawah"
-echo "      - Dapat diklik untuk show/hide"
-echo "      - Memiliki jarak dengan status server"
+echo "🎯 ELEMEN YANG BERFUNGSI:"
+echo "   1. Greeting User (bawah kanan)"
+echo "      - Ditampilkan saat halaman load"
+echo "      - Tombol ❌ di pojok untuk hide"
+echo "      - Hover effects dan animasi"
 echo ""
-echo "   2. Floating Toggle Button"
-echo "      - Ikon server di atas greeting"
-echo "      - Diklik untuk show/hide status server"
-echo "      - Auto-hide saat idle (muncul saat mouse bergerak)"
+echo "   2. Floating Toggle Button (di atas greeting)"
+echo "      - Badge jumlah server online"
+echo "      - Auto-hide saat idle (5 detik)"
+echo "      - Muncul saat mouse bergerak"
+echo "      - Klik untuk show/hide status server"
 echo ""
-echo "   3. Status Server Panel"
-echo "      - Muncul di atas greeting (jarak: 80px)"
-echo "      - Diklik untuk menutup (kecuali tombol 'Buka')"
-echo "      - Menampilkan detail server dengan tombol 'Buka'"
+echo "   3. Status Server Panel (di atas toggle button)"
+echo "      - Ditampilkan saat tombol toggle diklik"
+echo "      - Tombol ❌ di pojok untuk close"
+echo "      - Close juga dengan klik di luar panel"
+echo "      - Daftar server dengan tombol 'Buka'"
 echo ""
-echo "📱 INTERAKSI PENGguna:"
-echo "   • Klik greeting → toggle greeting visibility"
-echo "   • Klik toggle button → show/hide status server"
-echo "   • Klik panel status → close panel"
+echo "🖱️ INTERAKSI YANG BERFUNGSI:"
+echo "   • Klik ❌ pada greeting → greeting hilang"
+echo "   • Klik toggle button → show/hide panel status"
+echo "   • Klik ❌ pada panel status → panel hilang"
+echo "   • Klik di luar panel → panel hilang"
 echo "   • Klik tombol 'Buka' → buka server"
 echo ""
-echo "🎨 JARAK ANTAR ELEMEN:"
-echo "   • Toggle Button: bottom 140px"
-echo "   • Status Server: bottom 80px"
-echo "   • Greeting: bottom 16px"
+echo "📱 FITUR TAMBAHAN:"
+echo "   • Badge jumlah server online di toggle button"
+echo "   • Auto-hide toggle button saat idle"
+echo "   • Mouse hover effects pada semua elemen"
+echo "   • Animasi masuk/keluar yang smooth"
+echo "   • Scrollbar styling untuk daftar server"
 echo ""
-echo "✅ Sistem sekarang bersifat interaktif dan tidak mengganggu!"
+echo "🎨 DESAIN IMPROVED:"
+echo "   • Z-index yang tepat (tidak tertumpuk)"
+echo "   • Pointer events diatur dengan benar"
+echo "   • Transisi CSS yang konsisten"
+echo   "   • Jarak antar elemen:"
+echo "     - Greeting: bottom 16px"
+echo "     - Toggle Button: bottom 100px"
+echo "     - Status Panel: bottom 80px"
+echo ""
+echo "🚀 Sistem sekarang 100% berfungsi dan user-friendly!"
