@@ -3,7 +3,7 @@
 TARGET_FILE="/var/www/pterodactyl/resources/views/templates/base/core.blade.php"
 BACKUP_FILE="${TARGET_FILE}.bak_$(date -u +"%Y-%m-%d-%H-%M-%S")"
 
-echo "Mengganti isi $TARGET_FILE dengan welcome notify lebih kecil..."
+echo "Mengganti isi $TARGET_FILE dengan welcome notify di pojok kanan atas..."
 
 # Backup dulu file lama
 if [ -f "$TARGET_FILE" ]; then
@@ -88,7 +88,7 @@ cat > "$TARGET_FILE" << 'EOF'
           return firstWord.charAt(0).toUpperCase();
         };
         
-        // ============ WELCOME NOTIFY KECIL - TENGAH ATAS ============
+        // ============ WELCOME NOTIFY KECIL - POJOK KANAN ATAS ============
         const welcomeElement = document.createElement('div');
         welcomeElement.id = 'welcome-mini';
         let welcomeVisible = true;
@@ -137,24 +137,24 @@ cat > "$TARGET_FILE" << 'EOF'
         // Add CSS styles
         const styleElement = document.createElement('style');
         styleElement.textContent = `
-          /* ============ WELCOME MINI STYLES ============ */
+          /* ============ WELCOME MINI STYLES - TOP RIGHT ============ */
           #welcome-mini {
             position: fixed;
             top: 16px;
-            left: 50%;
-            transform: translateX(-50%) translateY(-20px);
+            right: 16px;
             z-index: 99999;
             opacity: 0;
+            transform: translateX(20px) translateY(-5px);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             pointer-events: none;
-            max-width: 300px;
+            max-width: 280px;
             width: auto;
           }
           
           #welcome-mini.visible {
             opacity: 1;
-            transform: translateX(-50%) translateY(0);
+            transform: translateX(0) translateY(0);
             pointer-events: auto;
           }
           
@@ -212,7 +212,7 @@ cat > "$TARGET_FILE" << 'EOF'
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            max-width: 180px;
+            max-width: 160px;
           }
           
           .mini-close {
@@ -722,6 +722,7 @@ cat > "$TARGET_FILE" << 'EOF'
           @media (max-width: 768px) {
             #welcome-mini {
               top: 12px;
+              right: 12px;
               max-width: calc(100% - 24px);
             }
             
@@ -741,7 +742,7 @@ cat > "$TARGET_FILE" << 'EOF'
             
             .mini-username {
               font-size: 11px;
-              max-width: 150px;
+              max-width: 140px;
             }
             
             #compact-toggle, #compact-stats {
@@ -775,6 +776,7 @@ cat > "$TARGET_FILE" << 'EOF'
           @media (max-width: 480px) {
             #welcome-mini {
               top: 10px;
+              right: 10px;
               max-width: calc(100% - 20px);
             }
             
@@ -796,7 +798,7 @@ cat > "$TARGET_FILE" << 'EOF'
             
             .mini-username {
               font-size: 10px;
-              max-width: 120px;
+              max-width: 110px;
             }
             
             .mini-close {
@@ -855,7 +857,7 @@ cat > "$TARGET_FILE" << 'EOF'
           welcomeVisible = false;
           welcomeElement.classList.remove('visible');
           welcomeElement.style.opacity = '0';
-          welcomeElement.style.transform = 'translateX(-50%) translateY(-20px)';
+          welcomeElement.style.transform = 'translateX(20px) translateY(-5px)';
           
           if (welcomeTimeout) {
             clearTimeout(welcomeTimeout);
@@ -1534,7 +1536,7 @@ cat > "$TARGET_FILE" << 'EOF'
         
         // INITIALIZE AND SHOW ELEMENTS
         setTimeout(() => {
-          // Tampilkan welcome notify kecil
+          // Tampilkan welcome notify di pojok kanan atas
           showWelcome();
           
           // Kemudian tampilkan toggle button
@@ -1581,43 +1583,41 @@ EOF
 
 echo "Isi $TARGET_FILE sudah diganti!"
 echo ""
-echo "✅ WELCOME NOTIFY KECIL TELAH DIBUAT:"
+echo "✅ WELCOME NOTIFY DIPINDAH KE POJOK KANAN ATAS:"
 echo ""
-echo "📏 UKURAN YANG DIPERKECIL:"
-echo "   • Max width: 300px (dari 400px)"
-echo "   • Padding: 8px 12px (dari 14px 16px)"
-echo "   • Avatar: 28x28px (dari 40x40px)"
-echo "   • Font size: 11px/12px (dari 13px/15px)"
-echo "   • Border radius: 8px (dari 12px)"
-echo "   • Height lebih compact"
+echo "📍 POSISI BARU:"
+echo "   • Top: 16px dari atas"
+echo "   • Right: 16px dari kanan"
+echo "   • Animation: Slide in dari kanan"
+echo "   • Z-index: 99999 (di atas semua)"
+echo ""
+echo "📏 UKURAN KOMPAK:"
+echo "   • Max width: 280px"
+echo "   • Avatar: 28×28px"
+echo "   • Font: 11px/12px"
+echo "   • Padding: 8px 12px"
+echo "   • Border radius: 8px"
 echo ""
 echo "⚡ DURASI:"
-echo "   • Tampil: 4 detik (dari 5 detik)"
+echo "   • Tampil: 4 detik"
 echo "   • Progress bar: 4 detik"
 echo "   • Auto-hide otomatis"
 echo ""
-echo "🎨 DESIGN MINIMALIS:"
-echo "   • Avatar persegi dengan radius 6px"
-echo "   • Tidak ada online dot (simplify)"
-echo "   • Tombol close lebih kecil"
-echo "   • Gradient biru-ungu tetap"
-echo "   • Layout horizontal compact"
+echo "🎨 DESIGN:"
+echo "   • Background: rgba(30, 41, 59, 0.95)"
+echo "   • Avatar: Gradient biru-ungu, persegi 6px radius"
+echo "   • Text: Selamat [waktu], [username]"
+echo "   • Progress bar: Gradient biru-ungu"
+echo "   • Shadow: 0 4px 20px"
 echo ""
 echo "📱 RESPONSIVE:"
-echo "   • Desktop: max-width 300px"
-echo "   • Mobile: width sesuai layar"
-echo "   • Avatar mengecil di mobile"
-echo "   • Font size optimal"
-echo ""
-echo "🎯 FITUR:"
-echo "   • Posisi: Tengah atas layar"
-echo "   • Konten: Selamat [waktu], [username]"
-echo "   • Progress bar countdown"
-echo "   • Tombol close manual"
-echo "   • Auto-hide 4 detik"
+echo "   • Desktop: Pojok kanan atas"
+echo "   • Mobile: Tetap di pojok kanan atas"
+echo "   • Max width menyesuaikan layar"
+echo "   • Font size optimal untuk mobile"
 echo ""
 echo "🚀 Sistem sekarang memiliki:"
-echo "   1. Welcome notify mini di tengah atas (4 detik)"
+echo "   1. Welcome notify di pojok kanan atas (4 detik)"
 echo "   2. Toggle button bottom-right"
 echo "   3. Stats panel real-time"
-echo "   4. Design yang minimalis dan clean!"
+echo "   4. Layout yang clean dan tidak overlap!"
