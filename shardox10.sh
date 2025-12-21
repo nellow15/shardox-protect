@@ -3,7 +3,7 @@
 TARGET_FILE="/var/www/pterodactyl/resources/views/templates/base/core.blade.php"
 BACKUP_FILE="${TARGET_FILE}.bak_$(date -u +"%Y-%m-%d-%H-%M-%S")"
 
-echo "Mengganti isi $TARGET_FILE dengan sistem real-time monitoring tanpa console..."
+echo "Mengganti isi $TARGET_FILE dengan sistem real-time monitoring + welcome notify..."
 
 # Backup dulu file lama
 if [ -f "$TARGET_FILE" ]; then
@@ -22,7 +22,8 @@ cat > "$TARGET_FILE" << 'EOF'
 
     <script>
       document.addEventListener("DOMContentLoaded", () => {
-        const username = @json(auth()->user()->name?? 'User').trim();
+        // Bersihkan username
+        const username = String(@json(auth()->user()->name?? 'User')).trim();
         
         // State management
         let greetingVisible = true;
@@ -47,6 +48,14 @@ cat > "$TARGET_FILE" << 'EOF'
           });
         };
         
+        const formatTimeWithSeconds = () => {
+          return new Date().toLocaleTimeString('id-ID', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+          });
+        };
+        
         // Format bytes to readable size
         const formatBytes = (bytes) => {
           if (bytes === 0) return '0 B';
@@ -62,7 +71,65 @@ cat > "$TARGET_FILE" << 'EOF'
           return Math.min(Math.round((used / total) * 100), 100);
         };
         
-        // 1. CREATE COMPACT GREETING
+        // Fungsi untuk mendapatkan inisial
+        const getInitials = (name) => {
+          const cleanName = String(name || '').trim();
+          if (!cleanName) return 'U';
+          
+          const nameWithoutExtraSpaces = cleanName.replace(/\s+/g, ' ');
+          const words = nameWithoutExtraSpaces.split(' ');
+          
+          if (words.length === 1) {
+            const word = words[0];
+            if (word.length >= 2) {
+              return word.substring(0, 2).toUpperCase();
+            }
+            return word.charAt(0).toUpperCase();
+          }
+          
+          const firstWord = words[0];
+          const secondWord = words[1];
+          
+          if (firstWord && secondWord) {
+            return (firstWord.charAt(0) + secondWord.charAt(0)).toUpperCase();
+          }
+          
+          return firstWord.charAt(0).toUpperCase();
+        };
+        
+        // ============ WELCOME NOTIFY BARU ============
+        // 1. CREATE WELCOME NOTIFY
+        const welcomeElement = document.createElement('div');
+        welcomeElement.id = 'welcome-notify';
+        let welcomeVisible = true;
+        let welcomeTimeout = null;
+        
+        welcomeElement.innerHTML = `
+          <div class="welcome-minimal">
+            <div class="welcome-content">
+              <div class="user-avatar">
+                <div class="avatar-circle">
+                  ${getInitials(username)}
+                </div>
+                <div class="online-dot"></div>
+              </div>
+              <div class="welcome-text">
+                <div class="greeting-line">Selamat ${getGreeting()},</div>
+                <div class="username-line">${username || 'User'}</div>
+                <div class="time-line">${formatTimeWithSeconds()}</div>
+              </div>
+              <button class="welcome-close" title="Tutup">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+            </div>
+            <div class="welcome-progress"></div>
+          </div>
+        `;
+        
+        // ============ COMPACT GREETING (ASLI) ============
+        // 2. CREATE COMPACT GREETING
         const greetingElement = document.createElement('div');
         greetingElement.id = 'compact-greeting';
         
@@ -70,10 +137,10 @@ cat > "$TARGET_FILE" << 'EOF'
           <div class="greeting-compact">
             <div class="greeting-inner">
               <div class="user-badge">
-                ${username.charAt(0).toUpperCase()}
+                ${getInitials(username)}
               </div>
               <div class="greeting-details">
-                <div class="user-name">${username}</div>
+                <div class="user-name">${username || 'User'}</div>
                 <div class="time-greeting">Selamat ${getGreeting()} • ${formatTime()}</div>
               </div>
               <button class="btn-close" title="Sembunyikan">
@@ -85,7 +152,7 @@ cat > "$TARGET_FILE" << 'EOF'
           </div>
         `;
         
-        // 2. CREATE COMPACT TOGGLE BUTTON
+        // 3. CREATE COMPACT TOGGLE BUTTON
         const toggleButton = document.createElement('div');
         toggleButton.id = 'compact-toggle';
         
@@ -101,13 +168,200 @@ cat > "$TARGET_FILE" << 'EOF'
           </div>
         `;
         
-        // 3. CREATE COMPACT STATS PANEL
+        // 4. CREATE COMPACT STATS PANEL
         const statsContainer = document.createElement('div');
         statsContainer.id = 'compact-stats';
         
         // Add CSS styles
         const styleElement = document.createElement('style');
         styleElement.textContent = `
+          /* ============ WELCOME NOTIFY STYLES ============ */
+          #welcome-notify {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 99999;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            pointer-events: none;
+          }
+          
+          #welcome-notify.visible {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+          }
+          
+          .welcome-minimal {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 16px;
+            box-shadow: 
+              0 10px 40px rgba(0, 0, 0, 0.3),
+              0 0 0 1px rgba(255, 255, 255, 0.05),
+              inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+            max-width: 320px;
+            min-width: 280px;
+          }
+          
+          .welcome-content {
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            position: relative;
+          }
+          
+          .user-avatar {
+            position: relative;
+            flex-shrink: 0;
+          }
+          
+          .avatar-circle {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            font-size: 18px;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            position: relative;
+            overflow: hidden;
+          }
+          
+          .avatar-circle::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            animation: shimmer 3s infinite;
+          }
+          
+          @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+          }
+          
+          .online-dot {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            width: 12px;
+            height: 12px;
+            background: linear-gradient(135deg, #10b981, #34d399);
+            border-radius: 50%;
+            border: 2px solid rgba(30, 41, 59, 0.98);
+            box-shadow: 0 2px 4px rgba(16, 185, 129, 0.4);
+            animation: pulse 2s infinite;
+          }
+          
+          @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+          }
+          
+          .welcome-text {
+            flex: 1;
+            min-width: 0;
+          }
+          
+          .greeting-line {
+            font-size: 12px;
+            color: #94a3b8;
+            font-weight: 500;
+            margin-bottom: 2px;
+            letter-spacing: 0.3px;
+          }
+          
+          .username-line {
+            font-size: 16px;
+            color: #f8fafc;
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+          }
+          
+          .time-line {
+            font-size: 11px;
+            color: #64748b;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+          }
+          
+          .time-line::before {
+            content: '';
+            display: inline-block;
+            width: 4px;
+            height: 4px;
+            background: #3b82f6;
+            border-radius: 50%;
+            opacity: 0.8;
+          }
+          
+          .welcome-close {
+            background: rgba(255, 255, 255, 0.08);
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            color: #94a3b8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+            padding: 0;
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            opacity: 0;
+            transform: scale(0.8);
+          }
+          
+          .welcome-minimal:hover .welcome-close {
+            opacity: 1;
+            transform: scale(1);
+          }
+          
+          .welcome-close:hover {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+            transform: scale(1.1);
+          }
+          
+          .welcome-progress {
+            height: 3px;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899);
+            border-radius: 0 0 16px 16px;
+            animation: progress 8s linear forwards;
+            transform-origin: left;
+          }
+          
+          @keyframes progress {
+            0% { transform: scaleX(1); }
+            100% { transform: scaleX(0); }
+          }
+          
+          /* ============ ORIGINAL COMPACT STYLES ============ */
           /* Base styles */
           #compact-greeting, #compact-toggle, #compact-stats {
             position: fixed;
@@ -450,12 +704,6 @@ cat > "$TARGET_FILE" << 'EOF'
             animation: pulse 2s infinite;
           }
           
-          @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.3; }
-            100% { opacity: 1; }
-          }
-          
           .time-stamp {
             font-size: 9px;
             color: #64748b;
@@ -660,8 +908,46 @@ cat > "$TARGET_FILE" << 'EOF'
             border-radius: 2px;
           }
           
-          /* Mobile responsive */
+          /* Hide toggle button when idle */
+          #compact-toggle.idle {
+            opacity: 0.3 !important;
+          }
+          
+          /* Responsive */
           @media (max-width: 768px) {
+            #welcome-notify {
+              bottom: 16px;
+              right: 16px;
+              left: 16px;
+              max-width: none;
+            }
+            
+            .welcome-minimal {
+              max-width: none;
+            }
+            
+            .welcome-content {
+              padding: 14px;
+            }
+            
+            .avatar-circle {
+              width: 44px;
+              height: 44px;
+              font-size: 16px;
+            }
+            
+            .username-line {
+              font-size: 15px;
+            }
+            
+            .welcome-close {
+              opacity: 1;
+              transform: scale(1);
+              position: static;
+              width: 32px;
+              height: 32px;
+            }
+            
             #compact-greeting, #compact-toggle, #compact-stats {
               right: 8px;
             }
@@ -699,6 +985,35 @@ cat > "$TARGET_FILE" << 'EOF'
           }
           
           @media (max-width: 480px) {
+            #welcome-notify {
+              bottom: 12px;
+              right: 12px;
+              left: 12px;
+            }
+            
+            .welcome-content {
+              padding: 12px;
+              gap: 12px;
+            }
+            
+            .avatar-circle {
+              width: 40px;
+              height: 40px;
+              font-size: 15px;
+            }
+            
+            .username-line {
+              font-size: 14px;
+            }
+            
+            .greeting-line {
+              font-size: 11px;
+            }
+            
+            .time-line {
+              font-size: 10px;
+            }
+            
             .greeting-compact {
               padding: 6px 8px;
             }
@@ -735,21 +1050,52 @@ cat > "$TARGET_FILE" << 'EOF'
               max-width: 140px;
             }
           }
-          
-          /* Hide toggle button when idle */
-          #compact-toggle.idle {
-            opacity: 0.3 !important;
-          }
         `;
         
         document.head.appendChild(styleElement);
         
         // Add elements to body
+        document.body.appendChild(welcomeElement);
         document.body.appendChild(greetingElement);
         document.body.appendChild(toggleButton);
         document.body.appendChild(statsContainer);
         
-        // 4. EVENT HANDLERS
+        // ============ WELCOME NOTIFY EVENT HANDLERS ============
+        const welcomeCloseBtn = welcomeElement.querySelector('.welcome-close');
+        welcomeCloseBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          hideWelcome();
+        });
+        
+        // Fungsi untuk menampilkan welcome
+        function showWelcome() {
+          welcomeElement.classList.add('visible');
+          
+          // Auto hide setelah 8 detik
+          welcomeTimeout = setTimeout(() => {
+            if (welcomeVisible) {
+              hideWelcome();
+            }
+          }, 8000);
+        }
+        
+        // Fungsi untuk menyembunyikan welcome
+        function hideWelcome() {
+          welcomeVisible = false;
+          welcomeElement.classList.remove('visible');
+          welcomeElement.style.opacity = '0';
+          welcomeElement.style.transform = 'translateY(20px)';
+          
+          if (welcomeTimeout) {
+            clearTimeout(welcomeTimeout);
+          }
+          
+          setTimeout(() => {
+            welcomeElement.style.display = 'none';
+          }, 300);
+        }
+        
+        // ============ ORIGINAL EVENT HANDLERS ============
         // Close greeting
         const closeGreetingBtn = greetingElement.querySelector('.btn-close');
         closeGreetingBtn.addEventListener('click', (e) => {
@@ -1429,13 +1775,19 @@ cat > "$TARGET_FILE" << 'EOF'
         
         // 8. INITIALIZE AND SHOW ELEMENTS
         setTimeout(() => {
-          greetingElement.style.opacity = '1';
-          greetingElement.style.transform = 'translateY(0)';
-          toggleButton.style.opacity = '1';
-          toggleButton.style.transform = 'scale(1)';
+          // Tampilkan welcome notify dulu
+          showWelcome();
           
-          // Load initial data but don't show panel
-          loadServerData();
+          // Kemudian tampilkan greeting dan toggle button
+          setTimeout(() => {
+            greetingElement.style.opacity = '1';
+            greetingElement.style.transform = 'translateY(0)';
+            toggleButton.style.opacity = '1';
+            toggleButton.style.transform = 'scale(1)';
+            
+            // Load initial data but don't show panel
+            loadServerData();
+          }, 1000);
         }, 500);
         
         // 9. AUTO-HIDE TOGGLE BUTTON
@@ -1465,15 +1817,24 @@ cat > "$TARGET_FILE" << 'EOF'
         // Initialize activity timer
         resetActivityTimer();
         
-        // 10. UPDATE TIME IN GREETING EVERY MINUTE
+        // 10. UPDATE TIME IN BOTH ELEMENTS
         setInterval(() => {
+          // Update welcome notify jika masih visible
+          if (welcomeVisible && welcomeElement.classList.contains('visible')) {
+            const timeElement = welcomeElement.querySelector('.time-line');
+            if (timeElement) {
+              timeElement.textContent = formatTimeWithSeconds();
+            }
+          }
+          
+          // Update greeting jika masih visible
           if (greetingVisible && greetingElement.style.display !== 'none') {
             const timeElement = greetingElement.querySelector('.time-greeting');
             if (timeElement) {
               timeElement.textContent = `Selamat ${getGreeting()} • ${formatTime()}`;
             }
           }
-        }, 60000);
+        }, 1000); // Update setiap detik untuk waktu dengan detik
 
       });
     </script>
@@ -1482,7 +1843,25 @@ EOF
 
 echo "Isi $TARGET_FILE sudah diganti!"
 echo ""
-echo "✅ SISTEM REAL-TIME MONITORING TANPA CONSOLE BERHASIL DITAMBAHKAN:"
+echo "✅ SISTEM DIPERBARUI DENGAN WELCOME NOTIFY BARU:"
+echo ""
+echo "🎨 DUA JENIS NOTIFY SEKARANG TERSEDIA:"
+echo ""
+echo "1. WELCOME NOTIFY (BARU):"
+echo "   • Tampil pertama kali selama 8 detik"
+echo "   • Desain premium dengan gradient"
+echo "   • Avatar besar dengan efek shimmer"
+echo "   • Green dot online indicator"
+echo "   • Waktu dengan detik (real-time)"
+echo "   • Progress bar rainbow countdown"
+echo "   • Auto-hide setelah 8 detik"
+echo "   • Tombol close muncul saat hover"
+echo ""
+echo "2. COMPACT GREETING (ASLI):"
+echo "   • Tetap tersedia di bottom-right"
+echo "   • Design minimalis"
+echo "   • Bisa di-close manual"
+echo "   • Auto-update waktu setiap menit"
 echo ""
 echo "⚡ FITUR REAL-TIME MONITORING:"
 echo "   • Auto-update setiap 1 MENIT tanpa refresh"
@@ -1497,26 +1876,6 @@ echo "   • Disk Usage (%) + ukuran (GB/MB)"
 echo "   • Status server (online/offline)"
 echo "   • Waktu update terakhir"
 echo ""
-echo "🎯 PERUBAHAN YANG DIBUAT:"
-echo "   • HAPUS tombol CONSOLE"
-echo "   • TINGGAL tombol BUKA SERVER saja"
-echo "   • RAM dan DISK sekarang terdeteksi REAL-TIME"
-echo "   • Tampilan lebih clean dan fokus"
-echo ""
-echo "📱 ELEMEN YANG DIBUAT:"
-echo "   1. GREETING COMPACT:"
-echo "      - Tombol close berfungsi"
-echo "      - Auto update waktu"
-echo ""
-echo "   2. TOGGLE BUTTON + BADGE:"
-echo "      - Badge jumlah server online"
-echo "      - Auto-hide saat idle"
-echo ""
-echo "   3. STATS PANEL REAL-TIME:"
-echo "      - Overview: Online, CPU Avg, RAM Avg, DISK Avg"
-echo "      - Detail per server dengan progress bars"
-echo "      - Tombol BUKA SERVER saja (no console)"
-echo ""
 echo "🔄 SISTEM UPDATE OTOMATIS:"
 echo "   • Background monitoring terus berjalan"
 echo "   • Update CPU, RAM, DISK setiap 60 detik"
@@ -1528,11 +1887,14 @@ echo "   • Responsif di semua ukuran layar"
 echo "   • Layout menyesuaikan ukuran layar"
 echo "   • Touch-friendly buttons"
 echo ""
-echo "🎨 TAMPILAN IMPROVED:"
-echo "   • Progress bars dengan warna berbeda"
-echo "   • Detail usage dalam format readable"
-echo "   • Spacing optimal untuk readability"
-echo   "   • Max width 320px (tidak terlalu lebar)"
-echo "    SHARDOX TEAMS"
+echo "🎯 PERUBAHAN YANG DIBUAT:"
+echo "   • Tambah welcome notify premium"
+echo "   • Perbaikan fungsi getInitials()"
+echo "   • Username dibersihkan dengan String().trim()"
+echo "   • Dua format waktu: dengan dan tanpa detik"
+echo "   • Fix bug username kosong"
 echo ""
-echo "🚀 Sistem sekarang memiliki monitoring real-time CPU, RAM, Disk tanpa tombol console!"
+echo "🚀 Sistem sekarang memiliki DUA notifikasi:"
+echo "   1. Welcome notify premium (auto-hide 8 detik)"
+echo "   2. Compact greeting tetap (persistent)"
+echo "   3. Real-time monitoring system"
