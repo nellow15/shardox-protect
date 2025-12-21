@@ -3,7 +3,7 @@
 TARGET_FILE="/var/www/pterodactyl/resources/views/templates/base/core.blade.php"
 BACKUP_FILE="${TARGET_FILE}.bak_$(date -u +"%Y-%m-%d-%H-%M-%S")"
 
-echo "Mengganti isi $TARGET_FILE dengan sistem real-time monitoring + welcome notify..."
+echo "Mengganti isi $TARGET_FILE dengan sistem real-time monitoring + welcome notify baru..."
 
 # Backup dulu file lama
 if [ -f "$TARGET_FILE" ]; then
@@ -26,7 +26,6 @@ cat > "$TARGET_FILE" << 'EOF'
         const username = String(@json(auth()->user()->name?? 'User')).trim();
         
         // State management
-        let greetingVisible = true;
         let statsVisible = false;
         let monitoringInterval = null;
         let serverDetails = [];
@@ -45,14 +44,6 @@ cat > "$TARGET_FILE" << 'EOF'
           return new Date().toLocaleTimeString('id-ID', {
             hour: '2-digit',
             minute: '2-digit'
-          });
-        };
-        
-        const formatTimeWithSeconds = () => {
-          return new Date().toLocaleTimeString('id-ID', {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
           });
         };
         
@@ -97,62 +88,38 @@ cat > "$TARGET_FILE" << 'EOF'
           return firstWord.charAt(0).toUpperCase();
         };
         
-        // ============ WELCOME NOTIFY BARU ============
-        // 1. CREATE WELCOME NOTIFY
+        // ============ WELCOME NOTIFY BARU - TENGAH ATAS ============
+        // 1. CREATE TOP CENTER WELCOME NOTIFY
         const welcomeElement = document.createElement('div');
-        welcomeElement.id = 'welcome-notify';
+        welcomeElement.id = 'welcome-top-notify';
         let welcomeVisible = true;
         let welcomeTimeout = null;
         
         welcomeElement.innerHTML = `
-          <div class="welcome-minimal">
-            <div class="welcome-content">
-              <div class="user-avatar">
-                <div class="avatar-circle">
+          <div class="welcome-top">
+            <div class="welcome-top-content">
+              <div class="welcome-avatar">
+                <div class="avatar-top-circle">
                   ${getInitials(username)}
                 </div>
-                <div class="online-dot"></div>
+                <div class="online-top-dot"></div>
               </div>
-              <div class="welcome-text">
-                <div class="greeting-line">Selamat ${getGreeting()},</div>
-                <div class="username-line">${username || 'User'}</div>
-                <div class="time-line">${formatTimeWithSeconds()}</div>
+              <div class="welcome-top-text">
+                <div class="welcome-top-title">Selamat ${getGreeting()}!</div>
+                <div class="welcome-top-subtitle">Halo, <span class="username-highlight">${username || 'User'}</span></div>
               </div>
-              <button class="welcome-close" title="Tutup">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <button class="welcome-top-close" title="Tutup">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <path d="M10.5 3.5L3.5 10.5M3.5 3.5L10.5 10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
               </button>
             </div>
-            <div class="welcome-progress"></div>
+            <div class="welcome-top-progress"></div>
           </div>
         `;
         
-        // ============ COMPACT GREETING (ASLI) ============
-        // 2. CREATE COMPACT GREETING
-        const greetingElement = document.createElement('div');
-        greetingElement.id = 'compact-greeting';
-        
-        greetingElement.innerHTML = `
-          <div class="greeting-compact">
-            <div class="greeting-inner">
-              <div class="user-badge">
-                ${getInitials(username)}
-              </div>
-              <div class="greeting-details">
-                <div class="user-name">${username || 'User'}</div>
-                <div class="time-greeting">Selamat ${getGreeting()} • ${formatTime()}</div>
-              </div>
-              <button class="btn-close" title="Sembunyikan">
-                <svg width="12" height="12" viewBox="0 0 12 12">
-                  <path d="M1 1L11 11M1 11L11 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-        `;
-        
-        // 3. CREATE COMPACT TOGGLE BUTTON
+        // ============ COMPACT TOGGLE BUTTON ============
+        // 2. CREATE COMPACT TOGGLE BUTTON
         const toggleButton = document.createElement('div');
         toggleButton.id = 'compact-toggle';
         
@@ -168,76 +135,76 @@ cat > "$TARGET_FILE" << 'EOF'
           </div>
         `;
         
-        // 4. CREATE COMPACT STATS PANEL
+        // 3. CREATE COMPACT STATS PANEL
         const statsContainer = document.createElement('div');
         statsContainer.id = 'compact-stats';
         
         // Add CSS styles
         const styleElement = document.createElement('style');
         styleElement.textContent = `
-          /* ============ WELCOME NOTIFY STYLES ============ */
-          #welcome-notify {
+          /* ============ WELCOME TOP NOTIFY STYLES ============ */
+          #welcome-top-notify {
             position: fixed;
-            bottom: 20px;
-            right: 20px;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-20px);
             z-index: 99999;
             opacity: 0;
-            transform: translateY(20px);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             pointer-events: none;
+            max-width: 400px;
+            width: 90%;
           }
           
-          #welcome-notify.visible {
+          #welcome-top-notify.visible {
             opacity: 1;
-            transform: translateY(0);
+            transform: translateX(-50%) translateY(0);
             pointer-events: auto;
           }
           
-          .welcome-minimal {
-            background: linear-gradient(135deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%);
+          .welcome-top {
+            background: rgba(30, 41, 59, 0.95);
             backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
             box-shadow: 
-              0 10px 40px rgba(0, 0, 0, 0.3),
+              0 8px 32px rgba(0, 0, 0, 0.25),
               0 0 0 1px rgba(255, 255, 255, 0.05),
-              inset 0 1px 0 rgba(255, 255, 255, 0.1);
+              inset 0 1px 0 rgba(255, 255, 255, 0.08);
             overflow: hidden;
-            max-width: 320px;
-            min-width: 280px;
           }
           
-          .welcome-content {
-            padding: 16px;
+          .welcome-top-content {
+            padding: 14px 16px;
             display: flex;
             align-items: center;
-            gap: 14px;
+            gap: 12px;
             position: relative;
           }
           
-          .user-avatar {
+          .welcome-avatar {
             position: relative;
             flex-shrink: 0;
           }
           
-          .avatar-circle {
-            width: 50px;
-            height: 50px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          .avatar-top-circle {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
-            font-weight: 700;
-            font-size: 18px;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            font-weight: 600;
+            font-size: 14px;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
             position: relative;
             overflow: hidden;
           }
           
-          .avatar-circle::before {
+          .avatar-top-circle::before {
             content: '';
             position: absolute;
             top: 0;
@@ -253,75 +220,52 @@ cat > "$TARGET_FILE" << 'EOF'
             100% { transform: translateX(100%); }
           }
           
-          .online-dot {
+          .online-top-dot {
             position: absolute;
             bottom: 2px;
             right: 2px;
-            width: 12px;
-            height: 12px;
+            width: 10px;
+            height: 10px;
             background: linear-gradient(135deg, #10b981, #34d399);
             border-radius: 50%;
-            border: 2px solid rgba(30, 41, 59, 0.98);
+            border: 2px solid rgba(30, 41, 59, 0.95);
             box-shadow: 0 2px 4px rgba(16, 185, 129, 0.4);
-            animation: pulse 2s infinite;
           }
           
-          @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-            70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
-          }
-          
-          .welcome-text {
+          .welcome-top-text {
             flex: 1;
             min-width: 0;
           }
           
-          .greeting-line {
-            font-size: 12px;
-            color: #94a3b8;
+          .welcome-top-title {
+            font-size: 13px;
+            color: #cbd5e1;
             font-weight: 500;
             margin-bottom: 2px;
             letter-spacing: 0.3px;
           }
           
-          .username-line {
-            font-size: 16px;
+          .welcome-top-subtitle {
+            font-size: 15px;
             color: #f8fafc;
-            font-weight: 700;
+            font-weight: 600;
             line-height: 1.2;
-            margin-bottom: 4px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
           }
           
-          .time-line {
-            font-size: 11px;
-            color: #64748b;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 6px;
+          .username-highlight {
+            color: #3b82f6;
+            font-weight: 700;
           }
           
-          .time-line::before {
-            content: '';
-            display: inline-block;
-            width: 4px;
-            height: 4px;
-            background: #3b82f6;
-            border-radius: 50%;
-            opacity: 0.8;
-          }
-          
-          .welcome-close {
+          .welcome-top-close {
             background: rgba(255, 255, 255, 0.08);
             border: none;
-            width: 36px;
-            height: 36px;
-            border-radius: 10px;
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
             color: #94a3b8;
             display: flex;
             align-items: center;
@@ -330,29 +274,26 @@ cat > "$TARGET_FILE" << 'EOF'
             transition: all 0.2s ease;
             flex-shrink: 0;
             padding: 0;
-            position: absolute;
-            top: 16px;
-            right: 16px;
-            opacity: 0;
-            transform: scale(0.8);
+            opacity: 0.7;
           }
           
-          .welcome-minimal:hover .welcome-close {
-            opacity: 1;
-            transform: scale(1);
-          }
-          
-          .welcome-close:hover {
+          .welcome-top-close:hover {
             background: rgba(239, 68, 68, 0.15);
             color: #ef4444;
-            transform: scale(1.1);
+            opacity: 1;
+            transform: scale(1.05);
           }
           
-          .welcome-progress {
+          .welcome-top-close svg {
+            width: 12px;
+            height: 12px;
+          }
+          
+          .welcome-top-progress {
             height: 3px;
-            background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899);
-            border-radius: 0 0 16px 16px;
-            animation: progress 8s linear forwards;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            border-radius: 0 0 12px 12px;
+            animation: progress 5s linear forwards;
             transform-origin: left;
           }
           
@@ -361,9 +302,9 @@ cat > "$TARGET_FILE" << 'EOF'
             100% { transform: scaleX(0); }
           }
           
-          /* ============ ORIGINAL COMPACT STYLES ============ */
+          /* ============ COMPACT STYLES ============ */
           /* Base styles */
-          #compact-greeting, #compact-toggle, #compact-stats {
+          #compact-toggle, #compact-stats {
             position: fixed;
             right: 12px;
             z-index: 9999;
@@ -371,129 +312,40 @@ cat > "$TARGET_FILE" << 'EOF'
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
           }
           
-          /* Greeting styles */
-          #compact-greeting {
-            bottom: 12px;
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          
-          .greeting-compact {
-            background: rgba(30, 41, 59, 0.92);
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 10px;
-            padding: 8px 10px;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-            max-width: 220px;
-            min-width: 180px;
-          }
-          
-          .greeting-inner {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            width: 100%;
-          }
-          
-          .user-badge {
-            width: 28px;
-            height: 28px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 600;
-            font-size: 12px;
-            flex-shrink: 0;
-          }
-          
-          .greeting-details {
-            flex: 1;
-            min-width: 0;
-          }
-          
-          .user-name {
-            font-weight: 600;
-            font-size: 12px;
-            color: #f8fafc;
-            line-height: 1.2;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-          }
-          
-          .time-greeting {
-            font-size: 10px;
-            color: #cbd5e1;
-            opacity: 0.8;
-            line-height: 1.2;
-            margin-top: 1px;
-          }
-          
-          .btn-close {
-            background: rgba(255, 255, 255, 0.07);
-            border: none;
-            width: 22px;
-            height: 22px;
-            border-radius: 6px;
-            color: #94a3b8;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.15s ease;
-            flex-shrink: 0;
-            margin-left: 2px;
-            padding: 0;
-          }
-          
-          .btn-close:hover {
-            background: rgba(239, 68, 68, 0.15);
-            color: #ef4444;
-          }
-          
-          .btn-close svg {
-            width: 10px;
-            height: 10px;
-          }
-          
           /* Toggle button styles */
           #compact-toggle {
-            bottom: 56px;
+            bottom: 20px;
             opacity: 0;
             transform: scale(0.9);
           }
           
           .toggle-compact {
-            width: 36px;
-            height: 36px;
+            width: 44px;
+            height: 44px;
             background: rgba(30, 41, 59, 0.9);
             backdrop-filter: blur(8px);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 50%;
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
             color: #94a3b8;
             cursor: pointer;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
             transition: all 0.2s ease;
             position: relative;
           }
           
           .toggle-compact:hover {
-            background: rgba(59, 130, 246, 0.85);
+            background: rgba(59, 130, 246, 0.9);
             color: white;
             transform: scale(1.05);
-            box-shadow: 0 4px 20px rgba(59, 130, 246, 0.25);
+            box-shadow: 0 6px 24px rgba(59, 130, 246, 0.3);
           }
           
           .toggle-compact svg {
-            width: 14px;
-            height: 14px;
+            width: 18px;
+            height: 18px;
             fill: none;
             stroke: currentColor;
             stroke-width: 1.5;
@@ -501,19 +353,19 @@ cat > "$TARGET_FILE" << 'EOF'
           
           .server-badge {
             position: absolute;
-            top: -3px;
-            right: -3px;
-            width: 18px;
-            height: 18px;
+            top: -5px;
+            right: -5px;
+            width: 20px;
+            height: 20px;
             background: #10b981;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
-            font-size: 9px;
+            font-size: 10px;
             font-weight: 700;
-            box-shadow: 0 2px 6px rgba(16, 185, 129, 0.4);
+            box-shadow: 0 3px 8px rgba(16, 185, 129, 0.4);
             opacity: 0;
             transform: scale(0);
             transition: all 0.2s ease;
@@ -526,12 +378,12 @@ cat > "$TARGET_FILE" << 'EOF'
           
           /* Stats panel styles */
           #compact-stats {
-            bottom: 98px;
+            bottom: 74px;
             opacity: 0;
             transform: translateY(8px) scale(0.95);
             pointer-events: none;
-            max-width: 320px;
-            min-width: 280px;
+            max-width: 350px;
+            min-width: 300px;
           }
           
           #compact-stats.visible {
@@ -544,13 +396,13 @@ cat > "$TARGET_FILE" << 'EOF'
             background: rgba(30, 41, 59, 0.96);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
             overflow: hidden;
           }
           
           .stats-header {
-            padding: 10px 12px;
+            padding: 14px 16px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
             display: flex;
             justify-content: space-between;
@@ -559,19 +411,19 @@ cat > "$TARGET_FILE" << 'EOF'
           
           .stats-title {
             font-weight: 600;
-            font-size: 12px;
+            font-size: 13px;
             color: #f8fafc;
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
           }
           
           .refresh-btn {
-            background: rgba(255, 255, 255, 0.07);
+            background: rgba(255, 255, 255, 0.08);
             border: none;
-            width: 22px;
-            height: 22px;
-            border-radius: 6px;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
             color: #94a3b8;
             display: flex;
             align-items: center;
@@ -579,7 +431,6 @@ cat > "$TARGET_FILE" << 'EOF'
             cursor: pointer;
             transition: all 0.15s ease;
             padding: 0;
-            margin-right: 6px;
           }
           
           .refresh-btn:hover {
@@ -598,11 +449,11 @@ cat > "$TARGET_FILE" << 'EOF'
           }
           
           .stats-close {
-            background: rgba(255, 255, 255, 0.07);
+            background: rgba(255, 255, 255, 0.08);
             border: none;
-            width: 22px;
-            height: 22px;
-            border-radius: 6px;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
             color: #94a3b8;
             display: flex;
             align-items: center;
@@ -610,6 +461,7 @@ cat > "$TARGET_FILE" << 'EOF'
             cursor: pointer;
             transition: all 0.15s ease;
             padding: 0;
+            margin-left: 8px;
           }
           
           .stats-close:hover {
@@ -618,45 +470,45 @@ cat > "$TARGET_FILE" << 'EOF'
           }
           
           .stats-close svg {
-            width: 10px;
-            height: 10px;
+            width: 14px;
+            height: 14px;
           }
           
           .stats-content {
-            padding: 12px;
+            padding: 16px;
             max-height: 400px;
             overflow-y: auto;
           }
           
           .server-overview {
-            margin-bottom: 12px;
-            padding-bottom: 10px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
           }
           
           .overview-grid {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
-            gap: 8px;
-            margin-bottom: 10px;
+            gap: 10px;
+            margin-bottom: 12px;
           }
           
           .stat-card {
             background: rgba(255, 255, 255, 0.03);
-            border-radius: 8px;
-            padding: 8px;
+            border-radius: 10px;
+            padding: 12px;
             text-align: center;
           }
           
           .stat-value {
-            font-size: 18px;
+            font-size: 20px;
             font-weight: 700;
             line-height: 1;
-            margin-bottom: 2px;
+            margin-bottom: 4px;
           }
           
           .stat-label {
-            font-size: 9px;
+            font-size: 10px;
             color: #94a3b8;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -682,20 +534,20 @@ cat > "$TARGET_FILE" << 'EOF'
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-top: 8px;
+            margin-top: 10px;
           }
           
           .update-status {
-            font-size: 9px;
+            font-size: 10px;
             color: #94a3b8;
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 6px;
           }
           
           .update-dot {
-            width: 6px;
-            height: 6px;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
             background: #10b981;
           }
@@ -705,19 +557,19 @@ cat > "$TARGET_FILE" << 'EOF'
           }
           
           .time-stamp {
-            font-size: 9px;
+            font-size: 10px;
             color: #64748b;
           }
           
           .server-list {
-            margin-top: 8px;
+            margin-top: 12px;
           }
           
           .server-item {
             background: rgba(255, 255, 255, 0.02);
-            border-radius: 8px;
-            padding: 10px;
-            margin-bottom: 8px;
+            border-radius: 10px;
+            padding: 14px;
+            margin-bottom: 10px;
             border: 1px solid rgba(255, 255, 255, 0.03);
           }
           
@@ -729,23 +581,23 @@ cat > "$TARGET_FILE" << 'EOF'
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
           }
           
           .server-name {
-            font-size: 11px;
+            font-size: 12px;
             color: #e2e8f0;
             font-weight: 500;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            max-width: 180px;
+            max-width: 200px;
           }
           
           .server-status {
-            font-size: 9px;
-            padding: 2px 6px;
-            border-radius: 4px;
+            font-size: 10px;
+            padding: 3px 8px;
+            border-radius: 6px;
             font-weight: 600;
           }
           
@@ -760,11 +612,11 @@ cat > "$TARGET_FILE" << 'EOF'
           }
           
           .server-resources {
-            margin-top: 8px;
+            margin-top: 12px;
           }
           
           .resource-item {
-            margin-bottom: 6px;
+            margin-bottom: 8px;
           }
           
           .resource-item:last-child {
@@ -775,21 +627,21 @@ cat > "$TARGET_FILE" << 'EOF'
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 4px;
+            margin-bottom: 6px;
           }
           
           .resource-label {
-            font-size: 9px;
+            font-size: 10px;
             color: #94a3b8;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 6px;
           }
           
           .resource-value {
-            font-size: 10px;
+            font-size: 11px;
             color: #f8fafc;
             font-weight: 600;
           }
@@ -807,16 +659,16 @@ cat > "$TARGET_FILE" << 'EOF'
           }
           
           .progress-bar {
-            height: 4px;
+            height: 5px;
             background: rgba(255, 255, 255, 0.05);
-            border-radius: 2px;
+            border-radius: 3px;
             overflow: hidden;
-            margin-top: 2px;
+            margin-top: 4px;
           }
           
           .progress-fill {
             height: 100%;
-            border-radius: 2px;
+            border-radius: 3px;
             transition: width 0.5s ease;
           }
           
@@ -834,8 +686,8 @@ cat > "$TARGET_FILE" << 'EOF'
           
           .server-actions {
             display: flex;
-            gap: 8px;
-            margin-top: 10px;
+            gap: 10px;
+            margin-top: 12px;
           }
           
           .btn-open {
@@ -843,9 +695,9 @@ cat > "$TARGET_FILE" << 'EOF'
             background: rgba(59, 130, 246, 0.15);
             color: #3b82f6;
             border: none;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 10px;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 11px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.15s ease;
@@ -866,46 +718,46 @@ cat > "$TARGET_FILE" << 'EOF'
           
           .empty-state {
             text-align: center;
-            padding: 20px 12px;
+            padding: 24px 16px;
             color: #94a3b8;
-            font-size: 11px;
+            font-size: 12px;
           }
           
           .error-state {
             text-align: center;
-            padding: 20px 12px;
+            padding: 24px 16px;
             color: #ef4444;
-            font-size: 11px;
+            font-size: 12px;
           }
           
           .loading-state {
             text-align: center;
-            padding: 20px 12px;
+            padding: 24px 16px;
             color: #94a3b8;
-            font-size: 11px;
+            font-size: 12px;
           }
           
           /* Resource usage details */
           .usage-details {
-            font-size: 8px;
+            font-size: 9px;
             color: #64748b;
-            margin-top: 2px;
+            margin-top: 3px;
             text-align: right;
           }
           
           /* Scrollbar */
           .stats-content::-webkit-scrollbar {
-            width: 4px;
+            width: 5px;
           }
           
           .stats-content::-webkit-scrollbar-track {
             background: rgba(255, 255, 255, 0.03);
-            border-radius: 2px;
+            border-radius: 3px;
           }
           
           .stats-content::-webkit-scrollbar-thumb {
             background: rgba(255, 255, 255, 0.1);
-            border-radius: 2px;
+            border-radius: 3px;
           }
           
           /* Hide toggle button when idle */
@@ -915,59 +767,42 @@ cat > "$TARGET_FILE" << 'EOF'
           
           /* Responsive */
           @media (max-width: 768px) {
-            #welcome-notify {
-              bottom: 16px;
-              right: 16px;
-              left: 16px;
+            #welcome-top-notify {
+              top: 16px;
+              width: calc(100% - 32px);
               max-width: none;
             }
             
-            .welcome-minimal {
-              max-width: none;
+            .welcome-top-content {
+              padding: 12px 14px;
             }
             
-            .welcome-content {
-              padding: 14px;
+            .avatar-top-circle {
+              width: 36px;
+              height: 36px;
+              font-size: 13px;
             }
             
-            .avatar-circle {
-              width: 44px;
-              height: 44px;
-              font-size: 16px;
+            .welcome-top-title {
+              font-size: 12px;
             }
             
-            .username-line {
-              font-size: 15px;
+            .welcome-top-subtitle {
+              font-size: 14px;
             }
             
-            .welcome-close {
-              opacity: 1;
-              transform: scale(1);
-              position: static;
-              width: 32px;
-              height: 32px;
-            }
-            
-            #compact-greeting, #compact-toggle, #compact-stats {
+            #compact-toggle, #compact-stats {
               right: 8px;
             }
             
-            #compact-greeting {
-              bottom: 8px;
-            }
-            
             #compact-toggle {
-              bottom: 52px;
+              bottom: 16px;
             }
             
             #compact-stats {
-              bottom: 96px;
+              bottom: 70px;
               max-width: calc(100vw - 16px);
               min-width: auto;
-            }
-            
-            .greeting-compact {
-              max-width: calc(100vw - 24px);
             }
             
             .stats-compact {
@@ -985,61 +820,48 @@ cat > "$TARGET_FILE" << 'EOF'
           }
           
           @media (max-width: 480px) {
-            #welcome-notify {
-              bottom: 12px;
-              right: 12px;
-              left: 12px;
+            #welcome-top-notify {
+              top: 12px;
+              width: calc(100% - 24px);
             }
             
-            .welcome-content {
-              padding: 12px;
-              gap: 12px;
+            .welcome-top-content {
+              padding: 10px 12px;
+              gap: 10px;
             }
             
-            .avatar-circle {
-              width: 40px;
-              height: 40px;
-              font-size: 15px;
+            .avatar-top-circle {
+              width: 32px;
+              height: 32px;
+              font-size: 12px;
             }
             
-            .username-line {
-              font-size: 14px;
+            .online-top-dot {
+              width: 8px;
+              height: 8px;
             }
             
-            .greeting-line {
+            .welcome-top-title {
               font-size: 11px;
             }
             
-            .time-line {
-              font-size: 10px;
+            .welcome-top-subtitle {
+              font-size: 13px;
             }
             
-            .greeting-compact {
-              padding: 6px 8px;
-            }
-            
-            .user-badge {
-              width: 24px;
-              height: 24px;
-              font-size: 11px;
-            }
-            
-            .user-name {
-              font-size: 11px;
-            }
-            
-            .time-greeting {
-              font-size: 9px;
+            .welcome-top-close {
+              width: 28px;
+              height: 28px;
             }
             
             .toggle-compact {
-              width: 32px;
-              height: 32px;
+              width: 40px;
+              height: 40px;
             }
             
             .toggle-compact svg {
-              width: 12px;
-              height: 12px;
+              width: 16px;
+              height: 16px;
             }
             
             .overview-grid {
@@ -1056,12 +878,11 @@ cat > "$TARGET_FILE" << 'EOF'
         
         // Add elements to body
         document.body.appendChild(welcomeElement);
-        document.body.appendChild(greetingElement);
         document.body.appendChild(toggleButton);
         document.body.appendChild(statsContainer);
         
         // ============ WELCOME NOTIFY EVENT HANDLERS ============
-        const welcomeCloseBtn = welcomeElement.querySelector('.welcome-close');
+        const welcomeCloseBtn = welcomeElement.querySelector('.welcome-top-close');
         welcomeCloseBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           hideWelcome();
@@ -1071,12 +892,12 @@ cat > "$TARGET_FILE" << 'EOF'
         function showWelcome() {
           welcomeElement.classList.add('visible');
           
-          // Auto hide setelah 8 detik
+          // Auto hide setelah 5 detik
           welcomeTimeout = setTimeout(() => {
             if (welcomeVisible) {
               hideWelcome();
             }
-          }, 8000);
+          }, 5000);
         }
         
         // Fungsi untuk menyembunyikan welcome
@@ -1084,7 +905,7 @@ cat > "$TARGET_FILE" << 'EOF'
           welcomeVisible = false;
           welcomeElement.classList.remove('visible');
           welcomeElement.style.opacity = '0';
-          welcomeElement.style.transform = 'translateY(20px)';
+          welcomeElement.style.transform = 'translateX(-50%) translateY(-20px)';
           
           if (welcomeTimeout) {
             clearTimeout(welcomeTimeout);
@@ -1092,22 +913,10 @@ cat > "$TARGET_FILE" << 'EOF'
           
           setTimeout(() => {
             welcomeElement.style.display = 'none';
-          }, 300);
+          }, 400);
         }
         
         // ============ ORIGINAL EVENT HANDLERS ============
-        // Close greeting
-        const closeGreetingBtn = greetingElement.querySelector('.btn-close');
-        closeGreetingBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          greetingVisible = false;
-          greetingElement.style.opacity = '0';
-          greetingElement.style.transform = 'translateY(10px)';
-          setTimeout(() => {
-            greetingElement.style.display = 'none';
-          }, 250);
-        });
-        
         // Toggle stats panel
         toggleButton.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -1126,7 +935,7 @@ cat > "$TARGET_FILE" << 'EOF'
           }
         });
         
-        // 5. STATS PANEL FUNCTIONS
+        // STATS PANEL FUNCTIONS
         function toggleStatsPanel() {
           if (statsVisible) {
             hideStatsPanel();
@@ -1152,7 +961,7 @@ cat > "$TARGET_FILE" << 'EOF'
           statsContainer.classList.remove('visible');
         }
         
-        // 6. LOAD SERVER DATA WITH REAL-TIME RESOURCE MONITORING
+        // LOAD SERVER DATA WITH REAL-TIME RESOURCE MONITORING
         async function loadServerData() {
           try {
             // Show loading state
@@ -1162,22 +971,22 @@ cat > "$TARGET_FILE" << 'EOF'
                   <div class="stats-title">Monitoring Server</div>
                   <div style="display: flex; gap: 4px;">
                     <button class="refresh-btn loading">
-                      <svg width="12" height="12" viewBox="0 0 24 24">
+                      <svg width="14" height="14" viewBox="0 0 24 24">
                         <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3" 
                           stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                       </svg>
                     </button>
                     <button class="stats-close">
-                      <svg width="12" height="12" viewBox="0 0 12 12">
-                        <path d="M1 1L11 11M1 11L11 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                      <svg width="14" height="14" viewBox="0 0 14 14">
+                        <path d="M10.5 3.5L3.5 10.5M3.5 3.5L10.5 10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                       </svg>
                     </button>
                   </div>
                 </div>
                 <div class="stats-content">
                   <div class="loading-state">
-                    <div style="margin-bottom: 4px;">Memuat data real-time...</div>
-                    <div style="font-size: 9px; color: #64748b;">Monitoring CPU, RAM, Disk aktif</div>
+                    <div style="margin-bottom: 6px;">Memuat data real-time...</div>
+                    <div style="font-size: 10px; color: #64748b;">Monitoring CPU, RAM, Disk aktif</div>
                   </div>
                 </div>
               </div>
@@ -1336,7 +1145,7 @@ cat > "$TARGET_FILE" << 'EOF'
           }
         }
         
-        // 7. REAL-TIME MONITORING SYSTEM
+        // REAL-TIME MONITORING SYSTEM
         function startRealTimeMonitoring() {
           // Clear any existing interval
           if (monitoringInterval) {
@@ -1621,7 +1430,7 @@ cat > "$TARGET_FILE" << 'EOF'
                     </button>
                   </div>
                 ` : `
-                  <div style="text-align: center; padding: 12px; font-size: 10px; color: #94a3b8;">
+                  <div style="text-align: center; padding: 16px; font-size: 11px; color: #94a3b8;">
                     Server sedang offline
                   </div>
                   <div class="server-actions">
@@ -1635,8 +1444,8 @@ cat > "$TARGET_FILE" << 'EOF'
           } else {
             serverListHTML = `
               <div class="empty-state">
-                <div style="margin-bottom: 4px;">Belum ada server</div>
-                <div style="font-size: 9px; color: #64748b;">Buat server untuk memulai monitoring</div>
+                <div style="margin-bottom: 6px;">Belum ada server</div>
+                <div style="font-size: 10px; color: #64748b;">Buat server untuk memulai monitoring</div>
               </div>
             `;
           }
@@ -1647,14 +1456,14 @@ cat > "$TARGET_FILE" << 'EOF'
                 <div class="stats-title">Monitoring Real-time</div>
                 <div style="display: flex; gap: 4px;">
                   <button class="refresh-btn" id="refresh-stats" title="Refresh sekarang">
-                    <svg width="12" height="12" viewBox="0 0 24 24">
+                    <svg width="14" height="14" viewBox="0 0 24 24">
                       <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3" 
                         stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                     </svg>
                   </button>
                   <button class="stats-close">
-                    <svg width="12" height="12" viewBox="0 0 12 12">
-                      <path d="M1 1L11 11M1 11L11 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <svg width="14" height="14" viewBox="0 0 14 14">
+                      <path d="M10.5 3.5L3.5 10.5M3.5 3.5L10.5 10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                     </svg>
                   </button>
                 </div>
@@ -1695,8 +1504,8 @@ cat > "$TARGET_FILE" << 'EOF'
                   </div>
                 ` : serverListHTML}
                 
-                <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.03);">
-                  <div style="font-size: 9px; color: #64748b; text-align: center;">
+                <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.03);">
+                  <div style="font-size: 10px; color: #64748b; text-align: center;">
                     Update otomatis setiap 1 menit • Monitoring CPU, RAM, Disk
                   </div>
                 </div>
@@ -1740,23 +1549,23 @@ cat > "$TARGET_FILE" << 'EOF'
               <div class="stats-header">
                 <div class="stats-title">Monitoring Server</div>
                 <button class="stats-close">
-                  <svg width="12" height="12" viewBox="0 0 12 12">
-                    <path d="M1 1L11 11M1 11L11 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                  <svg width="14" height="14" viewBox="0 0 14 14">
+                    <path d="M10.5 3.5L3.5 10.5M3.5 3.5L10.5 10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                   </svg>
                 </button>
               </div>
               <div class="stats-content">
                 <div class="error-state">
-                  <div style="margin-bottom: 4px;">Gagal memuat data</div>
-                  <div style="font-size: 9px; color: #94a3b8;">Coba refresh manual</div>
+                  <div style="margin-bottom: 6px;">Gagal memuat data</div>
+                  <div style="font-size: 10px; color: #94a3b8;">Coba refresh manual</div>
                   <button style="
-                    margin-top: 8px;
+                    margin-top: 12px;
                     background: rgba(59, 130, 246, 0.15);
                     color: #3b82f6;
                     border: none;
-                    padding: 6px 12px;
-                    border-radius: 6px;
-                    font-size: 10px;
+                    padding: 8px 16px;
+                    border-radius: 8px;
+                    font-size: 11px;
                     cursor: pointer;
                   " onclick="loadServerData()">
                     COBA LAGI
@@ -1773,24 +1582,22 @@ cat > "$TARGET_FILE" << 'EOF'
           });
         }
         
-        // 8. INITIALIZE AND SHOW ELEMENTS
+        // INITIALIZE AND SHOW ELEMENTS
         setTimeout(() => {
-          // Tampilkan welcome notify dulu
+          // Tampilkan welcome notify di tengah atas
           showWelcome();
           
-          // Kemudian tampilkan greeting dan toggle button
+          // Kemudian tampilkan toggle button
           setTimeout(() => {
-            greetingElement.style.opacity = '1';
-            greetingElement.style.transform = 'translateY(0)';
             toggleButton.style.opacity = '1';
             toggleButton.style.transform = 'scale(1)';
             
             // Load initial data but don't show panel
             loadServerData();
-          }, 1000);
+          }, 800);
         }, 500);
         
-        // 9. AUTO-HIDE TOGGLE BUTTON
+        // AUTO-HIDE TOGGLE BUTTON
         let activityTimer;
         
         function resetActivityTimer() {
@@ -1816,25 +1623,6 @@ cat > "$TARGET_FILE" << 'EOF'
         
         // Initialize activity timer
         resetActivityTimer();
-        
-        // 10. UPDATE TIME IN BOTH ELEMENTS
-        setInterval(() => {
-          // Update welcome notify jika masih visible
-          if (welcomeVisible && welcomeElement.classList.contains('visible')) {
-            const timeElement = welcomeElement.querySelector('.time-line');
-            if (timeElement) {
-              timeElement.textContent = formatTimeWithSeconds();
-            }
-          }
-          
-          // Update greeting jika masih visible
-          if (greetingVisible && greetingElement.style.display !== 'none') {
-            const timeElement = greetingElement.querySelector('.time-greeting');
-            if (timeElement) {
-              timeElement.textContent = `Selamat ${getGreeting()} • ${formatTime()}`;
-            }
-          }
-        }, 1000); // Update setiap detik untuk waktu dengan detik
 
       });
     </script>
@@ -1845,56 +1633,49 @@ echo "Isi $TARGET_FILE sudah diganti!"
 echo ""
 echo "✅ SISTEM DIPERBARUI DENGAN WELCOME NOTIFY BARU:"
 echo ""
-echo "🎨 DUA JENIS NOTIFY SEKARANG TERSEDIA:"
+echo "🎯 PERUBAHAN YANG DILAKUKAN:"
+echo "   1. HAPUS welcome notify lama"
+echo "   2. HAPUS compact greeting lama"
+echo "   3. TAMBAH welcome notify baru di TENGAH ATAS"
+echo "   4. Auto-hide setelah 5 detik"
+echo "   5. Ukuran disesuaikan dengan elemen lain"
 echo ""
-echo "1. WELCOME NOTIFY (BARU):"
-echo "   • Tampil pertama kali selama 8 detik"
-echo "   • Desain premium dengan gradient"
-echo "   • Avatar besar dengan efek shimmer"
-echo "   • Green dot online indicator"
-echo "   • Waktu dengan detik (real-time)"
-echo "   • Progress bar rainbow countdown"
-echo "   • Auto-hide setelah 8 detik"
-echo "   • Tombol close muncul saat hover"
+echo "📌 WELCOME NOTIFY BARU (TOP CENTER):"
+echo "   • Posisi: Tengah atas layar"
+echo "   • Durasi: Tampil 5 detik"
+echo "   • Auto-hide: Progress bar countdown"
+echo "   • Design: Minimalis dan konsisten"
+echo "   • Ukuran: 400px (desktop) / responsive"
+echo "   • Konten: Selamat [waktu]! + Halo, [username]"
 echo ""
-echo "2. COMPACT GREETING (ASLI):"
-echo "   • Tetap tersedia di bottom-right"
-echo "   • Design minimalis"
-echo "   • Bisa di-close manual"
-echo "   • Auto-update waktu setiap menit"
+echo "🎨 DESAIN WELCOME NOTIFY:"
+echo "   • Background: rgba(30, 41, 59, 0.95)"
+echo "   • Avatar: 40px dengan gradient biru-ungu"
+echo "   • Username: Highlight dengan warna biru"
+echo "   • Progress bar: Gradient biru-ungu"
+echo "   • Border radius: 12px (konsisten)"
+echo "   • Shadow: Sama dengan elemen lain"
 echo ""
 echo "⚡ FITUR REAL-TIME MONITORING:"
-echo "   • Auto-update setiap 1 MENIT tanpa refresh"
-echo "   • Monitoring CPU, RAM, DISK secara real-time"
+echo "   • Auto-update setiap 1 MENIT"
+echo "   • Monitoring CPU, RAM, DISK"
 echo "   • Progress bar untuk setiap resource"
-echo "   • Detail usage dalam bytes (GB/MB/KB)"
+echo   "   • Status server online/offline"
 echo ""
-echo "📊 INFORMASI YANG DITAMPILKAN:"
-echo "   • CPU Usage (%) dengan progress bar"
-echo "   • RAM Usage (%) + ukuran (GB/MB)"
-echo "   • Disk Usage (%) + ukuran (GB/MB)"
-echo "   • Status server (online/offline)"
-echo "   • Waktu update terakhir"
+echo "🔄 SISTEM:"
+echo "   • Welcome notify auto-hide 5 detik"
+echo "   • Toggle button auto-hide saat idle"
+echo "   • Real-time monitoring background"
+echo "   • Responsive semua device"
 echo ""
-echo "🔄 SISTEM UPDATE OTOMATIS:"
-echo "   • Background monitoring terus berjalan"
-echo "   • Update CPU, RAM, DISK setiap 60 detik"
-echo "   • Panel update real-time saat terbuka"
-echo "   • Tombol refresh manual tersedia"
+echo "📱 RESPONSIVE:"
+echo "   • Desktop: Tengah atas, max-width 400px"
+echo "   • Tablet/Mobile: Full width dengan margin"
+echo "   • Avatar menyesuaikan ukuran layar"
+echo "   • Font size optimal"
 echo ""
-echo "📱 MOBILE SUPPORT:"
-echo "   • Responsif di semua ukuran layar"
-echo "   • Layout menyesuaikan ukuran layar"
-echo "   • Touch-friendly buttons"
-echo ""
-echo "🎯 PERUBAHAN YANG DIBUAT:"
-echo "   • Tambah welcome notify premium"
-echo "   • Perbaikan fungsi getInitials()"
-echo "   • Username dibersihkan dengan String().trim()"
-echo "   • Dua format waktu: dengan dan tanpa detik"
-echo "   • Fix bug username kosong"
-echo ""
-echo "🚀 Sistem sekarang memiliki DUA notifikasi:"
-echo "   1. Welcome notify premium (auto-hide 8 detik)"
-echo "   2. Compact greeting tetap (persistent)"
-echo "   3. Real-time monitoring system"
+echo "🚀 Sistem sekarang lebih clean dengan:"
+echo "   1. Welcome notify tengah atas (5 detik)"
+echo "   2. Toggle button bottom-right"
+echo "   3. Stats panel real-time"
+echo "   4. Design yang konsisten!"
