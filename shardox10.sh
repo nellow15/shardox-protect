@@ -74,7 +74,7 @@ cat > "$TARGET_FILE" << 'EOF'
               </div>
               <div class="greeting-details">
                 <div class="user-name">${username}</div>
-                <div class="time-greeting">${getGreeting()} • ${formatTime()}</div>
+                <div class="time-greeting">Selamat ${getGreeting()} • ${formatTime()}</div>
               </div>
               <button class="btn-close" title="Sembunyikan">
                 <svg width="12" height="12" viewBox="0 0 12 12">
@@ -1470,7 +1470,7 @@ cat > "$TARGET_FILE" << 'EOF'
           if (greetingVisible && greetingElement.style.display !== 'none') {
             const timeElement = greetingElement.querySelector('.time-greeting');
             if (timeElement) {
-              timeElement.textContent = ` Selamat ${getGreeting()} • ${formatTime()}`;
+              timeElement.textContent = `Selamat ${getGreeting()} • ${formatTime()}`;
             }
           }
         }, 60000);
