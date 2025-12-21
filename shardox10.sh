@@ -3,7 +3,7 @@
 TARGET_FILE="/var/www/pterodactyl/resources/views/templates/base/core.blade.php"
 BACKUP_FILE="${TARGET_FILE}.bak_$(date -u +"%Y-%m-%d-%H-%M-%S")"
 
-echo "Mengganti isi $TARGET_FILE dengan perbaikan username..."
+echo "Mengganti isi $TARGET_FILE dengan sistem real-time monitoring tanpa console..."
 
 # Backup dulu file lama
 if [ -f "$TARGET_FILE" ]; then
@@ -22,8 +22,7 @@ cat > "$TARGET_FILE" << 'EOF'
 
     <script>
       document.addEventListener("DOMContentLoaded", () => {
-        // PERBAIKAN: Bersihkan username dengan lebih ketat
-        const username = String(@json(auth()->user()->name?? 'User')).trim();
+        const username = @json(auth()->user()->name?? 'User').trim();
         
         // State management
         let greetingVisible = true;
@@ -67,55 +66,14 @@ cat > "$TARGET_FILE" << 'EOF'
         const greetingElement = document.createElement('div');
         greetingElement.id = 'compact-greeting';
         
-        // PERBAIKAN: Fungsi yang lebih robust untuk mendapatkan inisial
-        const getInitials = (name) => {
-          // Pastikan string dan trim
-          const cleanName = String(name || '').trim();
-          
-          // Jika kosong, return default
-          if (!cleanName) return 'U';
-          
-          // Hapus multiple spaces
-          const nameWithoutExtraSpaces = cleanName.replace(/\s+/g, ' ');
-          
-          // Split menjadi kata-kata
-          const words = nameWithoutExtraSpaces.split(' ');
-          
-          // Jika hanya satu kata, ambil 2 huruf pertama
-          if (words.length === 1) {
-            const word = words[0];
-            if (word.length >= 2) {
-              return word.substring(0, 2).toUpperCase();
-            }
-            return word.charAt(0).toUpperCase();
-          }
-          
-          // Jika lebih dari satu kata, ambil huruf pertama dari dua kata pertama
-          const firstWord = words[0];
-          const secondWord = words[1];
-          
-          if (firstWord && secondWord) {
-            return (firstWord.charAt(0) + secondWord.charAt(0)).toUpperCase();
-          }
-          
-          // Fallback
-          return firstWord.charAt(0).toUpperCase();
-        };
-        
-        // PERBAIKAN: Fungsi untuk menampilkan nama dengan aman
-        const getDisplayName = (name) => {
-          const cleanName = String(name || '').trim();
-          return cleanName || 'User';
-        };
-        
         greetingElement.innerHTML = `
           <div class="greeting-compact">
             <div class="greeting-inner">
               <div class="user-badge">
-                ${getInitials(username)}
+                ${username.charAt(0).toUpperCase()}
               </div>
               <div class="greeting-details">
-                <div class="user-name">${getDisplayName(username)}</div>
+                <div class="user-name">${username}</div>
                 <div class="time-greeting">Selamat ${getGreeting()} • ${formatTime()}</div>
               </div>
               <button class="btn-close" title="Sembunyikan">
@@ -196,13 +154,6 @@ cat > "$TARGET_FILE" << 'EOF'
             font-weight: 600;
             font-size: 12px;
             flex-shrink: 0;
-            overflow: hidden;
-            text-overflow: clip;
-          }
-          
-          /* PERBAIKAN: Pastikan badge selalu terlihat */
-          .user-badge:empty::before {
-            content: 'U';
           }
           
           .greeting-details {
@@ -218,7 +169,6 @@ cat > "$TARGET_FILE" << 'EOF'
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            min-height: 14px;
           }
           
           .time-greeting {
@@ -789,11 +739,6 @@ cat > "$TARGET_FILE" << 'EOF'
           /* Hide toggle button when idle */
           #compact-toggle.idle {
             opacity: 0.3 !important;
-          }
-          
-          /* PERBAIKAN TAMBAHAN: Pastikan badge terlihat */
-          .user-badge {
-            content-visibility: auto;
           }
         `;
         
@@ -1537,28 +1482,57 @@ EOF
 
 echo "Isi $TARGET_FILE sudah diganti!"
 echo ""
-echo "✅ PERBAIKAN USERNAME BERHASIL DILAKUKAN:"
+echo "✅ SISTEM REAL-TIME MONITORING TANPA CONSOLE BERHASIL DITAMBAHKAN:"
 echo ""
-echo "🔧 PERBAIKAN YANG DILAKUKAN:"
-echo "   1. String conversion: String(@json(...)).trim()"
-echo "   2. Fungsi getInitials() yang lebih robust:"
-echo "      - Ambil 2 huruf pertama untuk username satu kata"
-echo "      - Ambil huruf pertama dari dua kata untuk username dua kata"
-echo "      - Contoh: 'admin admin' → 'AA'"
-echo "   3. Fungsi getDisplayName() untuk handle null/undefined"
-echo "   4. CSS: Tambah .user-badge:empty::before untuk fallback"
-echo "   5. CSS: Tambah min-height untuk .user-name"
+echo "⚡ FITUR REAL-TIME MONITORING:"
+echo "   • Auto-update setiap 1 MENIT tanpa refresh"
+echo "   • Monitoring CPU, RAM, DISK secara real-time"
+echo "   • Progress bar untuk setiap resource"
+echo "   • Detail usage dalam bytes (GB/MB/KB)"
 echo ""
-echo "📋 CONTOH HASIL:"
-echo "   • Username: 'admin admin' → Badge: 'AA'"
-echo "   • Username: 'john' → Badge: 'JO' (2 huruf pertama)"
-echo "   • Username: 'john doe' → Badge: 'JD'"
-echo "   • Username: '' atau null → Badge: 'U' (default)"
+echo "📊 INFORMASI YANG DITAMPILKAN:"
+echo "   • CPU Usage (%) dengan progress bar"
+echo "   • RAM Usage (%) + ukuran (GB/MB)"
+echo "   • Disk Usage (%) + ukuran (GB/MB)"
+echo "   • Status server (online/offline)"
+echo "   • Waktu update terakhir"
 echo ""
-echo "🎯 HASIL YANG DIHARAPKAN:"
-echo "   • Badge TIDAK AKAN KOSONG lagi"
-echo "   • Jika username ada spasi, akan diambil inisial setiap kata"
-echo "   • Fallback ke 'U' jika benar-benar kosong"
-echo "   • Tidak ada rendering issue"
+echo "🎯 PERUBAHAN YANG DIBUAT:"
+echo "   • HAPUS tombol CONSOLE"
+echo "   • TINGGAL tombol BUKA SERVER saja"
+echo "   • RAM dan DISK sekarang terdeteksi REAL-TIME"
+echo "   • Tampilan lebih clean dan fokus"
 echo ""
-echo "🚀 Jalankan script ini untuk memperbaiki masalah username!"
+echo "📱 ELEMEN YANG DIBUAT:"
+echo "   1. GREETING COMPACT:"
+echo "      - Tombol close berfungsi"
+echo "      - Auto update waktu"
+echo ""
+echo "   2. TOGGLE BUTTON + BADGE:"
+echo "      - Badge jumlah server online"
+echo "      - Auto-hide saat idle"
+echo ""
+echo "   3. STATS PANEL REAL-TIME:"
+echo "      - Overview: Online, CPU Avg, RAM Avg, DISK Avg"
+echo "      - Detail per server dengan progress bars"
+echo "      - Tombol BUKA SERVER saja (no console)"
+echo ""
+echo "🔄 SISTEM UPDATE OTOMATIS:"
+echo "   • Background monitoring terus berjalan"
+echo "   • Update CPU, RAM, DISK setiap 60 detik"
+echo "   • Panel update real-time saat terbuka"
+echo "   • Tombol refresh manual tersedia"
+echo ""
+echo "📱 MOBILE SUPPORT:"
+echo "   • Responsif di semua ukuran layar"
+echo "   • Layout menyesuaikan ukuran layar"
+echo "   • Touch-friendly buttons"
+echo ""
+echo "🎨 TAMPILAN IMPROVED:"
+echo "   • Progress bars dengan warna berbeda"
+echo "   • Detail usage dalam format readable"
+echo "   • Spacing optimal untuk readability"
+echo   "   • Max width 320px (tidak terlalu lebar)"
+echo "    SHARDOX TEAMS"
+echo ""
+echo "🚀 Sistem sekarang memiliki monitoring real-time CPU, RAM, Disk tanpa tombol console!"
