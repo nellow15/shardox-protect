@@ -3,7 +3,7 @@
 TARGET_FILE="/var/www/pterodactyl/resources/views/templates/base/core.blade.php"
 BACKUP_FILE="${TARGET_FILE}.bak_$(date -u +"%Y-%m-%d-%H-%M-%S")"
 
-echo "Mengganti isi $TARGET_FILE dengan sistem real-time monitoring tanpa console..."
+echo "Mengganti isi $TARGET_FILE dengan perbaikan username..."
 
 # Backup dulu file lama
 if [ -f "$TARGET_FILE" ]; then
@@ -22,8 +22,8 @@ cat > "$TARGET_FILE" << 'EOF'
 
     <script>
       document.addEventListener("DOMContentLoaded", () => {
-        // PERBAIKAN DI SINI: Tambahkan trim() untuk membersihkan whitespace
-        const username = @json(auth()->user()->name?? 'User').trim();
+        // PERBAIKAN: Bersihkan username dengan lebih ketat
+        const username = String(@json(auth()->user()->name?? 'User')).trim();
         
         // State management
         let greetingVisible = true;
@@ -67,22 +67,55 @@ cat > "$TARGET_FILE" << 'EOF'
         const greetingElement = document.createElement('div');
         greetingElement.id = 'compact-greeting';
         
-        // PERBAIKAN: Ambil inisial dengan aman
-        const getInitial = (name) => {
-          const cleanName = name.trim();
+        // PERBAIKAN: Fungsi yang lebih robust untuk mendapatkan inisial
+        const getInitials = (name) => {
+          // Pastikan string dan trim
+          const cleanName = String(name || '').trim();
+          
+          // Jika kosong, return default
           if (!cleanName) return 'U';
-          const firstChar = cleanName.charAt(0);
-          return firstChar.toUpperCase();
+          
+          // Hapus multiple spaces
+          const nameWithoutExtraSpaces = cleanName.replace(/\s+/g, ' ');
+          
+          // Split menjadi kata-kata
+          const words = nameWithoutExtraSpaces.split(' ');
+          
+          // Jika hanya satu kata, ambil 2 huruf pertama
+          if (words.length === 1) {
+            const word = words[0];
+            if (word.length >= 2) {
+              return word.substring(0, 2).toUpperCase();
+            }
+            return word.charAt(0).toUpperCase();
+          }
+          
+          // Jika lebih dari satu kata, ambil huruf pertama dari dua kata pertama
+          const firstWord = words[0];
+          const secondWord = words[1];
+          
+          if (firstWord && secondWord) {
+            return (firstWord.charAt(0) + secondWord.charAt(0)).toUpperCase();
+          }
+          
+          // Fallback
+          return firstWord.charAt(0).toUpperCase();
+        };
+        
+        // PERBAIKAN: Fungsi untuk menampilkan nama dengan aman
+        const getDisplayName = (name) => {
+          const cleanName = String(name || '').trim();
+          return cleanName || 'User';
         };
         
         greetingElement.innerHTML = `
           <div class="greeting-compact">
             <div class="greeting-inner">
               <div class="user-badge">
-                ${getInitial(username)}
+                ${getInitials(username)}
               </div>
               <div class="greeting-details">
-                <div class="user-name">${username || 'User'}</div>
+                <div class="user-name">${getDisplayName(username)}</div>
                 <div class="time-greeting">Selamat ${getGreeting()} • ${formatTime()}</div>
               </div>
               <button class="btn-close" title="Sembunyikan">
@@ -163,6 +196,13 @@ cat > "$TARGET_FILE" << 'EOF'
             font-weight: 600;
             font-size: 12px;
             flex-shrink: 0;
+            overflow: hidden;
+            text-overflow: clip;
+          }
+          
+          /* PERBAIKAN: Pastikan badge selalu terlihat */
+          .user-badge:empty::before {
+            content: 'U';
           }
           
           .greeting-details {
@@ -178,6 +218,7 @@ cat > "$TARGET_FILE" << 'EOF'
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            min-height: 14px;
           }
           
           .time-greeting {
@@ -748,6 +789,11 @@ cat > "$TARGET_FILE" << 'EOF'
           /* Hide toggle button when idle */
           #compact-toggle.idle {
             opacity: 0.3 !important;
+          }
+          
+          /* PERBAIKAN TAMBAHAN: Pastikan badge terlihat */
+          .user-badge {
+            content-visibility: auto;
           }
         `;
         
@@ -1491,24 +1537,28 @@ EOF
 
 echo "Isi $TARGET_FILE sudah diganti!"
 echo ""
-echo "✅ PERBAIKAN BERHASIL DILAKUKAN:"
+echo "✅ PERBAIKAN USERNAME BERHASIL DILAKUKAN:"
 echo ""
 echo "🔧 PERBAIKAN YANG DILAKUKAN:"
-echo "   1. Tambah .trim() pada username untuk menghapus spasi"
-echo "   2. Tambah fungsi getInitial() untuk handle kasus khusus"
-echo "   3. Pastikan username tidak null/undefined"
-echo "   4. Backup file lama sudah dibuat di $BACKUP_FILE"
+echo "   1. String conversion: String(@json(...)).trim()"
+echo "   2. Fungsi getInitials() yang lebih robust:"
+echo "      - Ambil 2 huruf pertama untuk username satu kata"
+echo "      - Ambil huruf pertama dari dua kata untuk username dua kata"
+echo "      - Contoh: 'admin admin' → 'AA'"
+echo "   3. Fungsi getDisplayName() untuk handle null/undefined"
+echo "   4. CSS: Tambah .user-badge:empty::before untuk fallback"
+echo "   5. CSS: Tambah min-height untuk .user-name"
 echo ""
-echo "📋 PERUBAHAN UTAMA:"
-echo "   • Line 15: const username = @json(auth()->user()->name?? 'User').trim();"
-echo "   • Line 40-44: Tambah fungsi getInitial()"
-echo "   • Line 54: Ganti ${username.charAt(0)} dengan ${getInitial(username)}"
-echo "   • Line 57: Tambah fallback ${username || 'User'}"
+echo "📋 CONTOH HASIL:"
+echo "   • Username: 'admin admin' → Badge: 'AA'"
+echo "   • Username: 'john' → Badge: 'JO' (2 huruf pertama)"
+echo "   • Username: 'john doe' → Badge: 'JD'"
+echo "   • Username: '' atau null → Badge: 'U' (default)"
 echo ""
-echo "🎯 HASIL:"
-echo "   • Username badge tidak akan kosong"
-echo "   • Jika username kosong, akan muncul 'U'"
-echo "   • Spasi di awal/akhir username dihapus"
-echo "   • Tidak ada lagi badge kosong seperti spasi"
+echo "🎯 HASIL YANG DIHARAPKAN:"
+echo "   • Badge TIDAK AKAN KOSONG lagi"
+echo "   • Jika username ada spasi, akan diambil inisial setiap kata"
+echo "   • Fallback ke 'U' jika benar-benar kosong"
+echo "   • Tidak ada rendering issue"
 echo ""
-echo "🚀 Sistem real-time monitoring sudah diperbaiki dan siap digunakan!"
+echo "🚀 Jalankan script ini untuk memperbaiki masalah username!"
